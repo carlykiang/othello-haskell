@@ -3,8 +3,9 @@ import Data.Int
 import GHC.Base (VecElem(Int64ElemRep))
 import GHC.Arr
 {-
-run ghci othello-sequential.hs
-then run main
+Commands to compile and run this program:
+ghc -o othello othello-sequential.hs
+./othello
 -}
 
 
@@ -13,16 +14,17 @@ type Position = (Int, Int)
 
 type Board = [[Int]]
 
-type Player = Int
+type Player = Int -- 0 means not taken, 1 means taken by player 1, 2 means taken by player 2
 
 type PDisks = [Position]
 
 
 data BoardState = BoardState {
     board       :: Board,
-    curr_player :: Int,
-    p1disks     :: PDisks,
-    p2disks     :: PDisks
+    curr_player :: Int
+    -- Temporarily commenting out PDisks to focus on core logic first
+    -- p1disks     :: PDisks,
+    -- p2disks     :: PDisks
 } deriving (Show)
 
 rows :: Int
@@ -34,7 +36,6 @@ cols = 8
 gameBoard :: Board
 gameBoard = [[0 | _ <- [1..cols]] | _ <- [1..rows]] :: [[Int]]
 
-gameBoard ! 0 = [1,1,1,1,1,1,1,1]
 
 updateBoardIndex :: Board -> Position -> Int -> Board
 updateBoardIndex board (i,j) val = prevRows ++ [updatedRow] ++ afterRows where
@@ -48,55 +49,173 @@ updateBoardIndexes board (x:xs) (y:ys) = updateBoardIndexes newBoard xs ys where
     newBoard = updateBoardIndex board x y
 
 {-
+Initialize the gameboard to start configuration and set current player to 1
+-}
+initializeBoard :: BoardState
+initializeBoard = BoardState {
+    board = updateBoardIndexes gameBoard [(3,3),(4,4),(4,3),(3,4)] [1,1,2,2],
+    curr_player = 1
+}
+
+{-
+Printing for Board
+-}
+printBoard :: Board -> IO ()
+printBoard board = mapM_ (putStrLn . unwords . map show) board
+
+{-
+Return the number at index (i,j) of the board
+-}
+getBoardVal :: Board -> Position -> Int
+getBoardVal board (i,j) = (board !! i) !! j
+
+{-
+Defined 8-way directions for checking adjacency and flanking rules
+-}
+directions :: [Position]
+directions = [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]
+
+{-
+Check if a given position is within bounds of the board
+-}
+inBounds :: Position -> Bool
+inBounds (x,y) = x >= 0 && x < rows && y >= 0 && y < cols
+
+{-
 Given a board state, return the possible next moves for the player
 -}
--- getPossibleMoves :: BoardState -> [Position]
-
-
-{-
-Given a Position and a BoardState, return whether the flanking condition is True/False
--}
--- flankingCheck :: Position -> BoardState -> Bool
-
+getPossibleMoves :: BoardState -> [Position]
+getPossibleMoves bs = [ (i,j) | i <- [0..rows-1],
+                                j <- [0..cols-1],
+                                getBoardVal (board bs) (i,j) == 0, -- spot is not taken yet
+                                not (null (adjacencyAndFlankingCheck bs (i,j))) -- adjacency and flanking rules are both met
+                                ]
 
 {-
-Given a Position and a BoardState, return whether the new Position already exists on the board. Can use as a helper method for getPossibleMoves
+Check if the adjacency and flanking conditions are both met for a given position
+Return a list of directions where both conditions are met
+If the list is non-empty, then the position is a valid move that satisfy both adjancy and flankinng rules
 -}
--- checkExists :: Position -> BoardState -> Bool
+adjacencyAndFlankingCheck :: BoardState -> Position -> [Position]
+adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentToOpp d && flankOpp d]
+    where
+        b = board bs
+        curPlayer = curr_player bs
+        oppPlayer = if curPlayer == 1 then 2 else 1
+
+        isAdjacentToOpp (di,dj) = inBounds (i+di,j+dj) && getBoardVal b (i+di,j+dj) == oppPlayer
+
+        {- 
+        Because of short-circuiting nature of &&, flankOpp will only be called if isAdjacentToOpp is True
+        for the given direction (di,dj). As such, inside flankOpp, we can simplify checking flanking condition
+        to be scanning towards direction (di,dj) and returning True if we find a disc of current player before hitting
+        an empty spot or going out of bounds. Hitting a disc of current player means flanking condition is met in the
+        (di,dj) direction because opponent's disc(s) is sandwiched between the new position (i,j) current player is
+        going to take and current player's existing disc on board.
+        -}
+        flankOpp (di,dj) = scan (i + di + di) (j + dj + dj)
+            where
+                scan x y =
+                    if not (inBounds (x,y)) then False
+                    else case getBoardVal b (x,y) of
+                        val | val == curPlayer -> True
+                        val | val == oppPlayer -> scan (x + di) (y + dj)
+                        _ -> False
 
 {-
-flipDisks, given BoardState, flip any disks for curr player
+Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
+to return an up-to-date BoardState to keep the game going
 -}
--- flipDisks :: BoardState -> BoardState
-
-{-
-Given a BoardState, return heuristic score of board
--}
--- evaluateBoard :: BoardState -> Int
+updateTurn :: Position -> BoardState -> BoardState
+-- Place a disc at `pos` for `curPlayer` and flip any sandwiched opponent disks
+updateTurn (i,j) bs = BoardState {
+    board = updatedBoard,
+    curr_player = oppPlayer
+} 
+    where
+        b = board bs
+        curPlayer = curr_player bs
+        oppPlayer = if curPlayer == 1 then 2 else 1
+        -- Figure out which directions are valid for flipping
+        flippableDirections = adjacencyAndFlankingCheck bs (i,j)
+        -- Helper function to get positions of all opponent discs to be flipped in one direction (di,dj)
+        flipInDirection (di,dj) = scan (i + di) (j + dj) []
+            where
+                scan x y acc =
+                    if not (inBounds (x,y)) then []
+                    else case getBoardVal b (x,y) of
+                        val | val == oppPlayer -> scan (x + di) (y + dj) ((x,y):acc)
+                        val | val == curPlayer -> acc
+                        _ -> []
+        allPositionsToFlip = concatMap flipInDirection flippableDirections
+        -- Replace index (i,j) and allPositionsToFlip with curPlayer
+        updatedBoard = updateBoardIndexes b ((i,j):allPositionsToFlip) (replicate (1 + length allPositionsToFlip) curPlayer)
 
 {-
 checkWinner, return winner of board (1, 2), or 0 if tie
 -}
--- checkWinner :: BoardState -> Int
+checkWinner :: BoardState -> Int
+checkWinner bs
+    | p1Count > p2Count = 1
+    | p2Count > p1Count = 2
+    | otherwise = 0
+    where
+        b = board bs
+        p1Count = sum [ length (filter (==1) row) | row <- b ]
+        p2Count = sum [ length (filter (==2) row) | row <- b ]
+
+{-
+Given a BoardState, return heuristic score of board
+-}
+-- TODO
+-- evaluateBoard :: BoardState -> Int
 
 {-
 miniMax algo for deciding next moves
 -}
+-- TODO
 -- miniMax
 
 {-
 gameLoop logic for alternating between players
+We loop until both players have no possible moves, and then declare winner
+This is a basic one to ensure that our helper functions work
+miniMax an evaluateBoard are NOT implemented yet
+TODO: Once those are implemented, we need to incorporate miniMax logic into gameLoop
 -}
--- gameLoop :: BoardState -> IO ()
-
--- Printing for Board
-printBoard :: Board -> IO ()
-printBoard board = mapM_ (putStrLn . unwords . map show) board
+gameLoop :: BoardState -> IO ()
+gameLoop bs = do
+    let possibleMoves = getPossibleMoves bs
+    if null possibleMoves
+        then do
+            let oppPlayer = if curr_player bs == 1 then 2 else 1
+            let oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
+            if null oppPossibleMoves
+                then do
+                    let winner = checkWinner bs
+                    if winner == 0
+                    then putStrLn "Game over! It's a tie!"
+                    else putStrLn $ "Game over! Winner is Player " ++ show winner
+                else do
+                    putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
+                    gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
+        else do
+            -- For simplicity, just pick the first possible move for now
+            -- TODO: need to change this to incorporate miniMax logic later
+            let (move:_) = possibleMoves
+            putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
+            putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
+            putStrLn "BEFORE MOVE:"
+            printBoard (board bs)
+            let newGameState = updateTurn move bs
+            putStrLn "AFTER MOVE:"
+            printBoard (board newGameState)
+            gameLoop newGameState
 
 main :: IO ()
 main = do
-    printBoard $ newBoard where
-        newBoard = updateBoardIndexes gameBoard [(3,3),(4,4),(4,3),(3,4)] [1,1,2,2]
+    gameLoop initializeBoard
+    putStrLn "Thanks for playing!"
 
 
 
