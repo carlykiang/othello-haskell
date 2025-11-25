@@ -168,7 +168,38 @@ checkWinner bs
 Given a BoardState, return heuristic score of board
 -}
 -- TODO
--- evaluateBoard :: BoardState -> Int
+-- evaluateBoard :: BoardState -> Int 
+
+
+{-
+Given a BoardState, return heuristic score of board
+-}
+-- TODO
+evaluateBoard :: BoardState -> Int 
+evaluateBoard bs = 2*(cornerHeuristic bs) + (mobilityHeuristic bs)
+
+
+{-
+Given a BoardState, return higher scores if current player has corners
+-}
+
+cornerHeuristic :: BoardState -> Int
+cornerHeuristic bs = c1 + c2 + c3 + c4 where
+    b = board bs
+    curPlayer = curr_player bs
+    c1 = if getBoardVal b (0,0) == curPlayer then 2 else 0 
+    c2 = if getBoardVal b (0,7) == curPlayer then 2 else 0 
+    c3 = if getBoardVal b (7,0) == curPlayer then 2 else 0 
+    c4 = if getBoardVal b (7,7) == curPlayer then 2 else 0 
+
+{-
+Given a BoardState, return higher scores if current player has more moves
+-}
+mobilityHeuristic :: BoardState -> Int
+mobilityHeuristic bs = length pos where
+    pos = getPossibleMoves bs
+
+
 
 {-
 miniMax algo for deciding next moves
@@ -216,6 +247,9 @@ main :: IO ()
 main = do
     gameLoop initializeBoard
     putStrLn "Thanks for playing!"
+    Simple testing for heuristics, can delete later
+    
+
 
 
 
