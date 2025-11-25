@@ -2,6 +2,9 @@ import System.IO
 import Data.Int
 import GHC.Base (VecElem(Int64ElemRep))
 import GHC.Arr
+import System.Posix.Internals (puts)
+import Data.List (maximumBy, minimumBy)
+import Data.Ord (comparing)
 {-
 Commands to compile and run this program:
 ghc -o othello othello-sequential.hs
@@ -122,6 +125,13 @@ adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentTo
                         val | val == oppPlayer -> scan (x + di) (y + dj)
                         _ -> False
 
+switchPlayer :: BoardState -> BoardState
+switchPlayer bs = new_bs where
+    new_bs = BoardState {
+        board = board bs,
+        curr_player = if curr_player bs == 1 then 2 else 1
+    }
+
 {-
 Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
 to return an up-to-date BoardState to keep the game going
@@ -203,10 +213,51 @@ mobilityHeuristic bs = length pos where
 
 {-
 miniMax algo for deciding next moves
+Player 1: 1000
+Player 2: -1000
+depth starts at a user defined, until we reach 0
+How to write minimax in haskell?
 -}
 -- TODO
--- miniMax
+minimax :: BoardState -> Int -> (Int, BoardState)
+minimax bs depth = 
+    let b = board bs 
+        cur_player = curr_player bs
+    in case checkWinner bs of
+        1 -> (100, bs)
+        2 -> (-100, bs)
+        0 -> 
+            if depth == 0
+                then (evaluateBoard bs, bs)
+            else -- need to have logic for when there are no possible moves?
+                let moves = getPossibleMoves bs 
+                    scores = map (\pos -> minimax (updateTurn pos bs) (depth - 1)) moves
+                in if cur_player == 1 -- maximum
+                    then maxIntBoard scores
+                    else minIntBoard scores
 
+maxIntBoard :: [(Int, BoardState)] -> (Int, BoardState)
+maxIntBoard xs = maximumBy (comparing fst) xs    
+
+minIntBoard :: [(Int, BoardState)] -> (Int, BoardState)
+minIntBoard xs = minimumBy (comparing fst) xs   
+  
+computerTurn :: BoardState -> IO ()
+computerTurn bs = do
+    putStrLn "Computer turn"
+    let (curr_score, new_bs) = minimax bs 3 -- minimax of depth 3
+    let final_score = evaluateBoard new_bs
+    putStrLn $ "Computer evaluated move with score: " ++ show final_score
+    printBoard (board new_bs)
+
+newGameLoop :: BoardState -> IO ()
+newGameLoop bs = do
+    printBoard (board bs)
+    case checkWinner bs of
+        1 -> putStrLn "Player 1 won"
+        2 -> putStrLn "Player 2 won"
+        0 -> do
+            computerTurn bs
 {-
 gameLoop logic for alternating between players
 We loop until both players have no possible moves, and then declare winner
@@ -245,9 +296,9 @@ gameLoop bs = do
 
 main :: IO ()
 main = do
-    gameLoop initializeBoard
+    -- gameLoop initializeBoard
+    newGameLoop initializeBoard
     putStrLn "Thanks for playing!"
-    Simple testing for heuristics, can delete later
     
 
 
