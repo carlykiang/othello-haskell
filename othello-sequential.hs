@@ -5,6 +5,9 @@ import GHC.Arr
 import System.Posix.Internals (puts)
 import Data.List (maximumBy, minimumBy)
 import Data.Ord (comparing)
+import Debug.Trace (trace)
+
+
 {-
 Commands to compile and run this program:
 ghc -o othello othello-sequential.hs
@@ -65,6 +68,7 @@ Printing for Board
 -}
 printBoard :: Board -> IO ()
 printBoard board = mapM_ (putStrLn . unwords . map show) board
+
 
 {-
 Return the number at index (i,j) of the board
@@ -164,13 +168,15 @@ updateTurn (i,j) bs = BoardState {
 {-
 checkWinner, return winner of board (1, 2), or 0 if tie
 -}
+
 checkWinner :: BoardState -> Int
 checkWinner bs
-    | p1Count > p2Count = 1
-    | p2Count > p1Count = 2
+    | nomoves && p1Count > p2Count = 1
+    | nomoves && p2Count > p1Count = 2
     | otherwise = 0
     where
         b = board bs
+        nomoves = null (getPossibleMoves bs) && null (getPossibleMoves (switchPlayer bs))
         p1Count = sum [ length (filter (==1) row) | row <- b ]
         p2Count = sum [ length (filter (==2) row) | row <- b ]
 
@@ -219,45 +225,74 @@ depth starts at a user defined, until we reach 0
 How to write minimax in haskell?
 -}
 -- TODO
-minimax :: BoardState -> Int -> (Int, BoardState)
-minimax bs depth = 
+minimax :: BoardState -> Maybe Position -> Int -> (Int, Maybe Position, BoardState)
+minimax bs pos depth = 
     let b = board bs 
+        best_move = pos
         cur_player = curr_player bs
     in case checkWinner bs of
-        1 -> (100, bs)
-        2 -> (-100, bs)
+        1 -> trace "Winner = Player 1 (score 100)" (100, best_move, bs)
+        2 -> trace "Winner = Player 2 (score 100)" (-100, best_move, bs)
         0 -> 
             if depth == 0
-                then (evaluateBoard bs, bs)
+                then trace "at depth = 0" (evaluateBoard bs, best_move, bs)
             else -- need to have logic for when there are no possible moves?
                 let moves = getPossibleMoves bs 
-                    scores = map (\pos -> minimax (updateTurn pos bs) (depth - 1)) moves
-                in if cur_player == 1 -- maximum
-                    then maxIntBoard scores
-                    else minIntBoard scores
+                    scores = map (\pos -> trace ("Exploring move: " ++ show pos ++
+                                               " at depth=" ++ show depth) 
+                                               (minimax (updateTurn pos bs) (Just pos) (depth - 1))) moves
+                in if null moves
+                   then (0, Nothing, bs)
+                   else 
+                        if cur_player == 1 -- maximum
+                        then maxIntBoard scores
+                        else minIntBoard scores
 
-maxIntBoard :: [(Int, BoardState)] -> (Int, BoardState)
-maxIntBoard xs = maximumBy (comparing fst) xs    
+maxIntBoard :: [(Int, Maybe Position, BoardState)] -> (Int, Maybe Position, BoardState)
+maxIntBoard xs = maximumBy (comparing (\(a, _, _) -> a)) xs    
 
-minIntBoard :: [(Int, BoardState)] -> (Int, BoardState)
-minIntBoard xs = minimumBy (comparing fst) xs   
+
+minIntBoard :: [(Int, Maybe Position, BoardState)] -> (Int, Maybe Position, BoardState)
+minIntBoard xs = minimumBy (comparing (\(a, _, _) -> a)) xs   
   
 computerTurn :: BoardState -> IO ()
 computerTurn bs = do
     putStrLn "Computer turn"
-    let (curr_score, new_bs) = minimax bs 3 -- minimax of depth 3
+    let (curr_score, best_move, new_bs) = minimax bs Nothing 1 -- minimax of depth 3
     let final_score = evaluateBoard new_bs
-    putStrLn $ "Computer evaluated move with score: " ++ show final_score
+    let new_bs = case best_move of
+            Nothing        ->  (switchPlayer bs) -- forfeit turn, give to player
+            Just best_move ->  (updateTurn best_move bs)
     printBoard (board new_bs)
+    putStrLn $ "Computer evaluated move with score: " ++ show final_score
+    newGameLoop new_bs
+    -- printBoard (board new_bs)
 
+-- Just select the first move from the possible moves
+playerTurn :: BoardState -> IO ()
+playerTurn bs = do
+    putStrLn "Player turn"
+    let moves = getPossibleMoves bs 
+    let new_bs = case null moves of
+            True -> switchPlayer bs
+            False  -> (updateTurn (head moves) bs)
+    printBoard (board new_bs)
+    newGameLoop new_bs
+
+{-
+Logic for player/computer back and forth game
+-}
 newGameLoop :: BoardState -> IO ()
 newGameLoop bs = do
+    putStrLn "New round"
     printBoard (board bs)
     case checkWinner bs of
         1 -> putStrLn "Player 1 won"
         2 -> putStrLn "Player 2 won"
         0 -> do
-            computerTurn bs
+            if curr_player bs == 1
+                then computerTurn bs
+                else playerTurn bs
 {-
 gameLoop logic for alternating between players
 We loop until both players have no possible moves, and then declare winner
