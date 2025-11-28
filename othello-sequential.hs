@@ -184,13 +184,6 @@ checkWinner bs
 Given a BoardState, return heuristic score of board
 -}
 -- TODO
--- evaluateBoard :: BoardState -> Int 
-
-
-{-
-Given a BoardState, return heuristic score of board
--}
--- TODO
 evaluateBoard :: BoardState -> Int 
 evaluateBoard bs = 2*(cornerHeuristic bs) + (mobilityHeuristic bs)
 
