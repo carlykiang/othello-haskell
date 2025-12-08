@@ -2,7 +2,11 @@ import System.IO
 import Data.Int
 import GHC.Base (VecElem(Int64ElemRep))
 import GHC.Arr
-import Data.List (maximumBy)
+
+import System.Posix.Internals (puts)
+import Data.List (maximumBy, minimumBy)
+import Data.Ord (comparing)
+import Debug.Trace (trace)
 import System.Random(newStdGen, randomR)
 
 {-
@@ -69,6 +73,7 @@ Printing for Board
 printBoard :: Board -> IO ()
 printBoard board = mapM_ (putStrLn . unwords . map show) board
 
+
 {-
 Return the number at index (i,j) of the board
 -}
@@ -128,6 +133,13 @@ adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentTo
                         val | val == oppPlayer -> scan (x + di) (y + dj)
                         _ -> False
 
+switchPlayer :: BoardState -> BoardState
+switchPlayer bs = new_bs where
+    new_bs = BoardState {
+        board = board bs,
+        curr_player = if curr_player bs == 1 then 2 else 1
+    }
+
 {-
 Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
 to return an up-to-date BoardState to keep the game going
@@ -166,21 +178,15 @@ countDisc bs player = sum [ length (filter (==player) row) | row <- board bs ]
 {-
 checkWinner, return winner of board (1, 2), or 0 if tie
 -}
+
 checkWinner :: BoardState -> Int
 checkWinner bs
-    | p1Count > p2Count = 1
-    | p2Count > p1Count = 2
+    | nomoves && p1Count > p2Count = 1
+    | nomoves && p2Count > p1Count = 2
     | otherwise = 0
     where
         p1Count = countDisc bs 1
         p2Count = countDisc bs 2
-
-{-
-Given a BoardState, return heuristic score of board
--}
--- TODO
--- evaluateBoard :: BoardState -> Int 
-
 
 {-
 Given a BoardState, return heuristic score of board
@@ -224,6 +230,10 @@ discCountHeuristic bs = (playerCount - oppCount) `div` 3
 
 {-
 miniMax algo for deciding next moves
+Player 1: 1000
+Player 2: -1000
+depth starts at a user defined, until we reach 0
+How to write minimax in haskell?
 -}
 miniMax :: BoardState -> Int -> Bool -> Int
 -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
@@ -235,6 +245,20 @@ miniMax bs remainingDepth isMaximizingPlayer
         moves = getPossibleMoves bs
 
 
+{-
+Logic for player/computer back and forth game
+-}
+newGameLoop :: BoardState -> IO ()
+newGameLoop bs = do
+    putStrLn "New round"
+    printBoard (board bs)
+    case checkWinner bs of
+        1 -> putStrLn "Player 1 won"
+        2 -> putStrLn "Player 2 won"
+        0 -> do
+            if curr_player bs == 1
+                then computerTurn bs
+                else playerTurn bs
 {-
 gameLoop logic for alternating between players
 TODO: need to implement alpha-beta pruning later to optimize miniMax
@@ -292,6 +316,7 @@ gameLoop bs = do
 
 main :: IO ()
 main = do
-    gameLoop initializeBoard
+    -- gameLoop initializeBoard
+    newGameLoop initializeBoard
     putStrLn "Thanks for playing!"
     -- Simple testing for heuristics, can delete later
