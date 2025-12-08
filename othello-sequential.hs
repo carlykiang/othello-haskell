@@ -181,8 +181,8 @@ checkWinner, return winner of board (1, 2), or 0 if tie
 
 checkWinner :: BoardState -> Int
 checkWinner bs
-    | nomoves && p1Count > p2Count = 1
-    | nomoves && p2Count > p1Count = 2
+    | p1Count > p2Count = 1
+    | p2Count > p1Count = 2
     | otherwise = 0
     where
         p1Count = countDisc bs 1
@@ -248,17 +248,17 @@ miniMax bs remainingDepth isMaximizingPlayer
 {-
 Logic for player/computer back and forth game
 -}
-newGameLoop :: BoardState -> IO ()
-newGameLoop bs = do
-    putStrLn "New round"
-    printBoard (board bs)
-    case checkWinner bs of
-        1 -> putStrLn "Player 1 won"
-        2 -> putStrLn "Player 2 won"
-        0 -> do
-            if curr_player bs == 1
-                then computerTurn bs
-                else playerTurn bs
+-- newGameLoop :: BoardState -> IO ()
+-- newGameLoop bs = do
+--     putStrLn "New round"
+--     printBoard (board bs)
+--     case checkWinner bs of
+--         1 -> putStrLn "Player 1 won"
+--         2 -> putStrLn "Player 2 won"
+--         0 -> do
+--             if curr_player bs == 1
+--                 then computerTurn bs
+--                 else playerTurn bs
 {-
 gameLoop logic for alternating between players
 TODO: need to implement alpha-beta pruning later to optimize miniMax
@@ -317,6 +317,6 @@ gameLoop bs = do
 main :: IO ()
 main = do
     -- gameLoop initializeBoard
-    newGameLoop initializeBoard
+    gameLoop initializeBoard
     putStrLn "Thanks for playing!"
     -- Simple testing for heuristics, can delete later

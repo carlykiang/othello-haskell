@@ -247,13 +247,18 @@ miniMax :: BoardState -> Int -> Bool -> Int
 -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
 miniMax bs remainingDepth isMaximizingPlayer
     | remainingDepth == 0 || null moves = evaluateBoard bs
-    | isMaximizingPlayer = parMaximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
-    | otherwise = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
+    | isMaximizingPlayer = parMaximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parList rdeepseq)
+    | otherwise = parMinimum ([miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` parList rdeepseq)
     where
         moves = getPossibleMoves bs
 
 {-
-Try to rewrite the maximum function that is used in miniMax to happen in parallel
+Rewrite the maximum function that is used in miniMax to happen in parallel
+-}
+
+
+{-
+Rewrite the maximum function that is used in miniMax to happen in parallel
 -}
 parMaximum :: [Int] -> Int
 parMaximum [] = error "Cannot find maximum of empty list"
@@ -276,26 +281,42 @@ splitChunks index xs = before : (splitChunks index after) where
 
 
 {-
-Logic for player/computer back and forth game
+No printing gameLoop
 -}
--- newGameLoop :: BoardState -> IO ()
--- newGameLoop bs = do
---     putStrLn "New round"
---     printBoard (board bs)
---     case checkWinner bs of
---         1 -> putStrLn "Player 1 won"
---         2 -> putStrLn "Player 2 won"
---         0 -> do
---             if curr_player bs == 1
---                 then computerTurn bs
---                 else playerTurn bs
-{-
-gameLoop logic for alternating between players
-TODO: need to implement alpha-beta pruning later to optimize miniMax
--}
--- To illustrate that the miniMax is working, we make player 2 use miniMax to pick its moves
--- For now, player 1 will just pick a random vailable move
--- We should be able to see player 2 winning more often than player 1
+noPrintGameLoop :: BoardState -> IO ()
+noPrintGameLoop bs = do
+    let possibleMoves = getPossibleMoves bs
+    if null possibleMoves
+        then do
+            let oppPlayer = if curr_player bs == 1 then 2 else 1
+                oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
+            if null oppPossibleMoves
+                then do
+                    let winner = checkWinner bs
+                    if winner == 0
+                    then putStrLn "Game over! It's a tie!"
+                    else do 
+                        putStrLn $ "Game over! Winner is Player " ++ show winner
+                        putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
+                        putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
+                else do
+                    putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
+                    noPrintGameLoop (BoardState { board = board bs, curr_player = oppPlayer })
+    else do
+        move <- if curr_player bs == 1
+                    then do
+                        -- Pick a random move for player 1
+                        gen <- newStdGen
+                        let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
+                        let move = possibleMoves !! randomIndex
+                        return move
+                    else do
+                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
+                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
+                        return move
+        let newGameState = updateTurn move bs
+        noPrintGameLoop newGameState
+
 gameLoop :: BoardState -> IO ()
 gameLoop bs = do
     let possibleMoves = getPossibleMoves bs
@@ -318,8 +339,6 @@ gameLoop bs = do
                     putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
                     gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
     else do
-        -- For simplicity, just pick the first possible move for now
-        -- TODO: need to change this to incorporate miniMax logic later
         putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
         move <- if curr_player bs == 1
                     then do
@@ -344,9 +363,10 @@ gameLoop bs = do
         printBoard (board newGameState)
         gameLoop newGameState
 
+
 main :: IO ()
 main = do
     -- gameLoop initializeBoard
-    gameLoop initializeBoard
+    noPrintGameLoop initializeBoard
     putStrLn "Thanks for playing!"
     -- Simple testing for heuristics, can delete later
