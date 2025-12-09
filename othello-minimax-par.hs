@@ -247,10 +247,28 @@ miniMax :: BoardState -> Int -> Bool -> Int
 -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
 miniMax bs remainingDepth isMaximizingPlayer
     | remainingDepth == 0 || null moves = evaluateBoard bs
-    | isMaximizingPlayer = parMaximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parList rdeepseq)
-    | otherwise = parMinimum ([miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` parList rdeepseq)
+    | isMaximizingPlayer = if remainingDepth >= 2
+                           then maximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parBuffer 8 rdeepseq)
+                           else maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` rseq
+    | otherwise = if remainingDepth >= 2
+                  then minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq--`using` parBuffer 10 rdeepseq)
+                  else minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq
     where
         moves = getPossibleMoves bs
+
+{-
+Writing alpha beta pruning helper method
+
+
+-}
+-- miniMax :: BoardState -> Int -> Bool -> Int
+-- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
+-- miniMax bs remainingDepth isMaximizingPlayer
+--     | remainingDepth == 0 || null moves = evaluateBoard bs
+--     | isMaximizingPlayer = parMaximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parBuffer 3 rdeepseq)
+--     | otherwise = parMinimum ([miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` parBuffer 3 rdeepseq)
+--     where
+--         moves = getPossibleMoves bs
 
 {-
 Rewrite the maximum function that is used in miniMax to happen in parallel
@@ -264,14 +282,14 @@ parMaximum :: [Int] -> Int
 parMaximum [] = error "Cannot find maximum of empty list"
 parMaximum xs = maximum maximums
     where 
-        list_chunks = splitChunks 4 xs
+        list_chunks = splitChunks 5 xs
         maximums = withStrategy (parList rseq) (map maximum list_chunks)
 
 parMinimum :: [Int] -> Int
 parMinimum [] = error "Cannot find minimum of empty list"
 parMinimum xs = minimum minimums
     where 
-        list_chunks = splitChunks 4 xs
+        list_chunks = splitChunks 5 xs
         minimums = withStrategy (parList rseq) (map minimum list_chunks)
 
 splitChunks :: Int -> [a] -> [[a]]
