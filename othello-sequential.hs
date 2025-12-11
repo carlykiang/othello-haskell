@@ -150,7 +150,7 @@ updateTurn (i,j) bs = BoardState {
         b = board bs
         curPlayer = curr_player bs
         oppPlayer = if curPlayer == 1 then 2 else 1
-        -- Figure out which directions are valid for flipping
+        -- Figure out which directions are valid for flipping 
         flippableDirections = adjacencyAndFlankingCheck bs (i,j)
         -- Helper function to get positions of all opponent discs to be flipped in one direction (di,dj)
         flipInDirection (di,dj) = scan (i + di) (j + dj) []
