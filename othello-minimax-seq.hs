@@ -149,7 +149,7 @@ updateTurn :: Position -> BoardState -> BoardState
 updateTurn (i,j) bs = BoardState {
     board = updatedBoard,
     curr_player = oppPlayer
-} 
+}
     where
         b = board bs
         curPlayer = curr_player bs
@@ -192,7 +192,7 @@ checkWinner bs
 Given a BoardState, return heuristic score of board
 -}
 -- TODO
-evaluateBoard :: BoardState -> Int 
+evaluateBoard :: BoardState -> Int
 evaluateBoard bs = 2*(cornerHeuristic bs) + (mobilityHeuristic bs) + (discCountHeuristic bs)
 
 
@@ -204,10 +204,10 @@ cornerHeuristic :: BoardState -> Int
 cornerHeuristic bs = c1 + c2 + c3 + c4 where
     b = board bs
     curPlayer = curr_player bs
-    c1 = if getBoardVal b (0,0) == curPlayer then 2 else 0 
-    c2 = if getBoardVal b (0,7) == curPlayer then 2 else 0 
-    c3 = if getBoardVal b (7,0) == curPlayer then 2 else 0 
-    c4 = if getBoardVal b (7,7) == curPlayer then 2 else 0 
+    c1 = if getBoardVal b (0,0) == curPlayer then 2 else 0
+    c2 = if getBoardVal b (0,7) == curPlayer then 2 else 0
+    c3 = if getBoardVal b (7,0) == curPlayer then 2 else 0
+    c4 = if getBoardVal b (7,7) == curPlayer then 2 else 0
 
 {-
 Given a BoardState, return higher scores if current player has more moves
@@ -235,14 +235,35 @@ Player 2: -1000
 depth starts at a user defined, until we reach 0
 How to write minimax in haskell?
 -}
-miniMax :: BoardState -> Int -> Bool -> Int
+miniMax :: BoardState -> Maybe Position -> Int -> Bool -> (Int, Maybe Position)
 -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
-miniMax bs remainingDepth isMaximizingPlayer
-    | remainingDepth == 0 || null moves = evaluateBoard bs
-    | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
-    | otherwise = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
+miniMax bs next_move remainingDepth isMaximizingPlayer
+    | remainingDepth == 0 || null moves = (evaluateBoard bs, next_move) 
+    | isMaximizingPlayer = maxIntBoard [miniMax (updateTurn Just move bs) (Just move) (remainingDepth-1) False | move <- moves]
+    | otherwise          = minIntBoard [miniMax (updateTurn (Just move) bs) (Just move) (remainingDepth-1) True | move <- moves]
     where
         moves = getPossibleMoves bs
+
+
+maxIntBoard :: [(Int, Maybe Position)] -> (Int, Maybe Position)
+maxIntBoard xs = maximumBy (comparing fst) xs    
+ß
+minIntBoard :: [(Int, Maybe Position)] -> (Int, Maybe Position)
+minIntBoard xs = minimumBy (comparing fst) xs   
+
+
+miniMaxAlphaBeta :: BoardState -> [Position] -> Int -> Bool -> Int -> Int -> Int
+-- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
+miniMaxAlphaBeta bs (curr_move:rest_moves) remainingDepth isMaximizingPlayer alpha beta
+    | remainingDepth == 0 || null moves || (beta <= alpha) = evaluateBoard bs
+    | isMaximizingPlayer = max_eval
+    | otherwise =  min_eval
+    where
+        moves = getPossibleMoves bs
+        max_eval  = miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) False alpha beta
+        min_eval  = miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) True alpha beta
+        alpha = max alpha max_eval
+        beta  = min beta min_eval
 
 
 {-
@@ -278,7 +299,7 @@ gameLoop bs = do
                     let winner = checkWinner bs
                     if winner == 0
                     then putStrLn "Game over! It's a tie!"
-                    else do 
+                    else do
                         putStrLn $ "Game over! Winner is Player " ++ show winner
                         putStrLn $ "Final Board:"
                         printBoard (board bs)
@@ -289,7 +310,6 @@ gameLoop bs = do
                     gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
     else do
         -- For simplicity, just pick the first possible move for now
-        -- TODO: need to change this to incorporate miniMax logic later
         putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
         move <- if curr_player bs == 1
                     then do
@@ -300,10 +320,12 @@ gameLoop bs = do
                         putStrLn $ "Player 1 (Random) chooses move " ++ show move
                         return move
                     else do
-                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
-                        putStrLn "Player 2 possible moves and scores:"
-                        mapM_ (\(m,score) -> putStrLn $ "Move: " ++ show m ++ ", Score: " ++ show score) possibleMovesWithScores
-                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
+                        -- let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) (getPossibleMoves bs) 3 True 10000 0) | m <- possibleMoves ]
+                        -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
+                        -- putStrLn "Player 2 possible moves and scores:"
+                        -- mapM_ (\(m,score) -> putStrLn $ "Move: " ++ show m ++ ", Score: " ++ show score) possibleMovesWithScores
+                        -- let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
+                        let (move, best_score) = miniMax bs Nothing 3 True
                         putStrLn $ "Player 2 (MiniMax) chooses move " ++ show move
                         return move
         putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
