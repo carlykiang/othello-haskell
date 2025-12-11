@@ -17,12 +17,12 @@ TODO: set it up as stack project with proper .yaml files in the long run to make
 For now, run the following command in terminal to compile and run:
 stack ghc --package random -- -o othello othello-minimax-par.hs
 stack ghc -- -Wall -O2 -threaded -rtsopts hw4
-
-stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
-
 ./othello
 
-./othello +RTS -N1 -s 
+stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
+./othello +RTS -N2 -s      
+
+./othello +RTS -N1 -s -l
 ./threadscope othello.eventlog
 -}
 
@@ -248,7 +248,7 @@ miniMax :: BoardState -> Int -> Bool -> Int
 miniMax bs remainingDepth isMaximizingPlayer
     | remainingDepth == 0 || null moves = evaluateBoard bs
     | isMaximizingPlayer = if remainingDepth >= 2
-                           then maximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parBuffer 8 rdeepseq)
+                           then maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] -- `using` parBuffer 8 rdeepseq)
                            else maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` rseq
     | otherwise = if remainingDepth >= 2
                   then minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq--`using` parBuffer 10 rdeepseq)
@@ -329,8 +329,8 @@ noPrintGameLoop bs = do
                         let move = possibleMoves !! randomIndex
                         return move
                     else do
-                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
-                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
+                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
+                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores 
                         return move
         let newGameState = updateTurn move bs
         noPrintGameLoop newGameState
