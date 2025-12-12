@@ -230,57 +230,45 @@ discCountHeuristic bs = (playerCount - oppCount) `div` 3
 
 
 {-
-miniMax algo for deciding next moves
-Player 1: 1000
-Player 2: -1000
-depth starts at a user defined, until we reach 0
-How to write minimax in haskell?
+miniMax algo
 -}
--- miniMax :: BoardState -> Maybe Position -> Int -> Bool -> (Int, Maybe Position)
--- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
--- miniMax bs next_move remainingDepth isMaximizingPlayer
---     | remainingDepth == 0 || null moves = (evaluateBoard bs, next_move) 
---     | isMaximizingPlayer = maxIntBoard [miniMax (updateTurn Just move bs) (Just move) (remainingDepth-1) False | move <- moves]
---     | otherwise          = minIntBoard [miniMax (updateTurn (Just move) bs) (Just move) (remainingDepth-1) True | move <- moves]
---     where
---         moves = getPossibleMoves bs
-
-
-maxIntBoard :: [(Int, Maybe Position)] -> (Int, Maybe Position)
-maxIntBoard xs = maximumBy (comparing fst) xs    
-
-minIntBoard :: [(Int, Maybe Position)] -> (Int, Maybe Position)
-minIntBoard xs = minimumBy (comparing fst) xs   
-
-
-miniMaxAlphaBeta :: BoardState -> [Position] -> Int -> Bool -> Int -> Int -> Int
+miniMax :: BoardState -> Int -> Bool -> Int
 -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
-miniMaxAlphaBeta bs (curr_move:rest_moves) remainingDepth isMaximizingPlayer alpha beta
-    | remainingDepth == 0 || null moves || (beta <= alpha) = evaluateBoard bs
-    | isMaximizingPlayer = miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) False new_alpha beta
-    | otherwise =  miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) True alpha new_beta
+miniMax bs remainingDepth isMaximizingPlayer
+    | remainingDepth == 0 || null moves = evaluateBoard bs
+    | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
+    | otherwise          = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
     where
         moves = getPossibleMoves bs
-        max_eval  = miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) False alpha beta
-        min_eval  = miniMaxAlphaBeta (updateTurn curr_move bs) rest_moves (remainingDepth-1) True alpha beta
-        new_alpha = max alpha max_eval
-        new_beta  = min beta min_eval
+
+
 
 
 {-
-Logic for player/computer back and forth game
+miniMax with AlphaBeta, referenced from
+https://www.reddit.com/r/haskell/comments/1nigy1n/stumped_on_alpha_beta_pruning_in_haskell/
+
 -}
--- newGameLoop :: BoardState -> IO ()
--- newGameLoop bs = do
---     putStrLn "New round"
---     printBoard (board bs)
---     case checkWinner bs of
---         1 -> putStrLn "Player 1 won"
---         2 -> putStrLn "Player 2 won"
---         0 -> do
---             if curr_player bs == 1
---                 then computerTurn bs
---                 else playerTurn bs
+miniMaxAlphaBeta :: BoardState -> Int -> Bool -> Int -> Int -> Int                            
+miniMaxAlphaBeta bs 0 _ _ _ = evaluateBoard bs
+
+miniMaxAlphaBeta bs remainingDepth True alpha beta = go alpha 0 [updateTurn move bs | move <- getPossibleMoves bs]
+  where
+    go a v (s:ss) = let v' = max v (miniMaxAlphaBeta s (remainingDepth - 1) False a beta)
+                        in  if v' >= beta then v'
+                            else go (max a v') v' ss
+    go _ v [] = v
+
+miniMaxAlphaBeta bs remainingDepth False alpha beta = go beta 10000 [updateTurn move bs | move <- getPossibleMoves bs]
+  where
+    go b v (s:ss) = let v' = min v (miniMaxAlphaBeta s (remainingDepth - 1) True alpha b)
+                        in  if v' <= alpha then v'
+                            else go (min b v') v' ss
+    go _ v [] = v
+
+
+
+
 {-
 gameLoop logic for alternating between players
 TODO: need to implement alpha-beta pruning later to optimize miniMax
@@ -322,7 +310,8 @@ gameLoop bs = do
                         return move
                     else do
                         putStrLn $ "Player 2 (MiniMax) chooses move "
-                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) (getPossibleMoves bs) 3 True 100000 0) | m <- possibleMoves ]
+
+                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ]
                         -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
                         putStrLn "Player 2 possible moves and scores:"
                         mapM_ (\(m,score) -> putStrLn $ "Move: " ++ show m ++ ", Score: " ++ show score) possibleMovesWithScores
