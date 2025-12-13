@@ -239,18 +239,40 @@ Player 2: -1000
 depth starts at a user defined, until we reach 0
 How to write minimax in haskell?
 -}
-miniMax :: BoardState -> Int -> Bool -> Int
--- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
-miniMax bs remainingDepth isMaximizingPlayer
-    | remainingDepth == 0 || null moves = evaluateBoard bs
-    | isMaximizingPlayer = if remainingDepth >= 2
-                           then maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] -- `using` parBuffer 8 rdeepseq)
-                           else maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` rseq
-    | otherwise = if remainingDepth >= 2
-                  then minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq--`using` parBuffer 10 rdeepseq)
-                  else minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq
-    where
-        moves = getPossibleMoves bs
+-- miniMax :: BoardState -> Int -> Bool -> Int
+-- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
+-- miniMax bs remainingDepth isMaximizingPlayer
+--     | remainingDepth == 0 || null moves = evaluateBoard bs
+--     | isMaximizingPlayer = if remainingDepth >= 2
+--                            then maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] -- `using` parBuffer 8 rdeepseq)
+--                            else maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` rseq
+--     | otherwise = if remainingDepth >= 2
+--                   then minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq--`using` parBuffer 10 rdeepseq)
+--                   else minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq
+--     where
+--         moves = getPossibleMoves bs
+
+{-
+miniMax with AlphaBeta, referenced from
+https://www.reddit.com/r/haskell/comments/1nigy1n/stumped_on_alpha_beta_pruning_in_haskell/
+
+-}
+miniMaxAlphaBeta :: BoardState -> Int -> Bool -> Int -> Int -> Int                            
+miniMaxAlphaBeta bs 0 _ _ _ = evaluateBoard bs
+
+miniMaxAlphaBeta bs remainingDepth True alpha beta = go alpha 0 [updateTurn move bs | move <- getPossibleMoves bs]
+  where
+    go a v (s:ss) = let v' = max v (miniMaxAlphaBeta s (remainingDepth - 1) False a beta)
+                        in  if v' >= beta then v'
+                            else go (max a v') v' ss
+    go _ v [] = v
+
+miniMaxAlphaBeta bs remainingDepth False alpha beta = go beta 10000 [updateTurn move bs | move <- getPossibleMoves bs]
+  where
+    go b v (s:ss) = let v' = min v (miniMaxAlphaBeta s (remainingDepth - 1) True alpha b)
+                        in  if v' <= alpha then v'
+                            else go (min b v') v' ss
+    go _ v [] = v
 
 {-
 Writing alpha beta pruning helper method
@@ -327,7 +349,8 @@ noPrintGameLoop bs = do
                         let move = possibleMoves !! randomIndex
                         return move
                     else do
-                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
+                        -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
+                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
                         let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores 
                         return move
         let newGameState = updateTurn move bs

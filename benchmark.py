@@ -1,7 +1,7 @@
 import subprocess
 import re
 
-# Benchmarking script for comparing parallelizing minimax (with alpha-beta pruning) vs sequential minimax (with alpha-beta pruning) in Othello
+# Benchmarking script for comparing parallelized minimax (without alpha-beta pruning) vs sequential minimax (with alpha-beta pruning) vs parallelized minimax (with alpha-beta pruning) in Othello
 # Result: https://docs.google.com/spreadsheets/d/1KGVDMUBALCCqr3oS2dOiXjDoIqsVjbt3bKWB6a7yBC8/edit?gid=952670711#gid=952670711
 
 NUM_RUNS = 100
@@ -10,6 +10,7 @@ elapsed_times = []
 
 for _ in range(NUM_RUNS):
     result = subprocess.run(
+        # parallelized minimax (without alpha-beta pruning)
         # Compile parallelized minimax othello using: stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
         # ["./othello", "+RTS", "-N1", "-s"], capture_output=True, text=True
         # ["./othello", "+RTS", "-N2", "-s"], capture_output=True, text=True
@@ -19,8 +20,21 @@ for _ in range(NUM_RUNS):
         # ["./othello", "+RTS", "-N6", "-s"], capture_output=True, text=True
         # ["./othello", "+RTS", "-N7", "-s"], capture_output=True, text=True
         # ["./othello", "+RTS", "-N8", "-s"], capture_output=True, text=True
+
+        # sequential minimax (with alpha-beta pruning)
         # Compile sequential minimax othello with alpha-beta pruning using: stack ghc  --package random  -- -Wall -O2 -o othello othello-minimax-seq.hs
-        ["./othello", "+RTS", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-s"], capture_output=True, text=True
+
+        # parallelized minimax (with alpha-beta pruning)
+        # Compile parallelized minimax othello with alpha-beta pruning using: stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
+        # ["./othello", "+RTS", "-N1", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N2", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N3", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N4", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N5", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N6", "-s"], capture_output=True, text=True
+        # ["./othello", "+RTS", "-N7", "-s"], capture_output=True, text=True
+        ["./othello", "+RTS", "-N8", "-s"], capture_output=True, text=True
     )
 
     # Keep track of player 2's winning rate
