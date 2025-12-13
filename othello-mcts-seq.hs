@@ -265,12 +265,24 @@ selection node path =
 Expansion: expand the selected node by adding a new child node for one of its possible moves pos
 -}
 expansion :: MCTSNode -> Position -> MCTSNode
-expansion node pos = node { children = newNode : children node }
+expansion node pos =
+    if any (\c -> m c == Just pos) (children node)
+        then node -- Child already exists, do not add duplicate
+        else node { children = newNode : children node }
     where
         bsNew = updateTurn pos (state node)
         newNode = MCTSNode {
             state = bsNew,
-            children = [],
+            children = [ c | mv <- getPossibleMoves bsNew,
+                            let bsChild = updateTurn mv bsNew,
+                            let c = MCTSNode {
+                                state = bsChild,
+                                children = [],
+                                n_i = 0,
+                                t = 0.0,
+                                m = Just mv
+                            }
+                        ],
             n_i = 0,
             t = 0.0,
             m = Just pos
@@ -305,11 +317,22 @@ evaluateBoardMTCS bs rootPlayer =
 
 {-
 Backpropagation: propagate n_i and t values along the path from selected node back to root
+Also update children field of the node along the way
+[MCTSNode] is of the path from leaf to root, so we use the previous node to update the children field of the current node
+MCTSNode: previous node updated (the node we will use to update children field of current node in the path)
+Double: reward obtained from simulation
+MCTSNode: return the last node updated (AKA root node updated)
 -}
-backpropagation :: [MCTSNode] -> Double -> [MCTSNode]
-backpropagation path reward = map updateNode path
-    where
-        updateNode node = node { n_i = n_i node + 1, t = t node + reward }
+backpropagation :: [MCTSNode] -> MCTSNode -> Double -> MCTSNode
+backpropagation [] updatedNode _ = updatedNode
+backpropagation (parent:rest) updatedChild reward =
+    let updatedChild' = updatedChild { n_i = n_i updatedChild + 1, t = t updatedChild + reward }
+        updatedParent = parent {
+            children = map (\c -> if m c == m updatedChild' then updatedChild' else c) (children parent),
+            n_i = n_i parent + 1,
+            t = t parent + reward
+        }
+    in backpropagation rest updatedParent reward
 
 {-
 Run one iteration of MCTS: selection, expansion, simulation, backpropagation
@@ -317,19 +340,20 @@ Run one iteration of MCTS: selection, expansion, simulation, backpropagation
 runMCTSIteration :: MCTSNode -> IO MCTSNode
 runMCTSIteration root = do
     let (selectedNode, path) = selection root []
-        possibleMoves = getPossibleMoves (state selectedNode)
-        existingMoves = [mv | child <- children selectedNode, Just mv <- [m child]]
-        unexpandedMoves = filter (`notElem` existingMoves) possibleMoves
-    expandedNode <- if null unexpandedMoves
-                    then return selectedNode
-                    else do gen <- newStdGen
-                            let (randomIndex, _) = randomR (0, length unexpandedMoves - 1) gen
-                            let move = unexpandedMoves !! randomIndex
-                            return $ expansion selectedNode move
-    reward <- simulation expandedNode
-    updatedPath <- return $ backpropagation (path ++ [expandedNode]) reward
-    let updatedRoot = head updatedPath
-    return updatedRoot
+    case m selectedNode of
+        Nothing -> return root -- Root it selected, cannot expand further
+        Just pos -> do
+            let possibleMoves = getPossibleMoves (state selectedNode)
+            if null possibleMoves
+            then return root -- No possible moves to expand
+            else do
+                gen <- newStdGen
+                let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
+                let move = possibleMoves !! randomIndex
+                let expandedNode = expansion selectedNode move
+                reward <- simulation expandedNode
+                let updatedRoot = backpropagation (reverse path) expandedNode reward
+                return updatedRoot
 
 {-
 Run MCTS for a given number of iterations starting from the given root node
@@ -401,7 +425,7 @@ gameLoop bs = do
                             t = 0.0,
                             m = Nothing
                         }
-                        mctsRoot <- runMCTS rootNode 100 -- Run MCTS for 100 iterations
+                        mctsRoot <- runMCTS rootNode 1 -- Run MCTS for 100 iterations
                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
                         putStrLn $ "MCTS Root after iterations: " ++ show mctsRoot
                         let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
