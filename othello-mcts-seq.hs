@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use if" #-}
 import System.IO
 import Data.Int
 import GHC.Base (VecElem(Int64ElemRep))
@@ -252,37 +254,35 @@ uctValue node parentN =
 {-
 Selection: select the best child to perform simulation based on UCT values
 Also keeps track of path from root to selected node for backpropagation later
+Boolean for if the leaf has been visited before return True (need to expand)
+    if leaf has not been visited before, return false, can directly simulate/rollout
 -}
-selection :: MCTSNode -> [MCTSNode] -> (MCTSNode, [MCTSNode])
+selection :: MCTSNode -> [MCTSNode] -> (MCTSNode, [MCTSNode], Bool)
 selection node path =
     if null (children node)
-        then (node, path)
+        then if n_i node == 0
+            then (node, path, True)
+            else (node, path, False)
         else selection bestChild (path ++ [node])
     where
         bestChild = maximumBy (comparing (\child -> uctValue child (n_i node))) (children node)
 
+
+
 {-
 Expansion: expand the selected node by adding a new child node for one of its possible moves pos
+return the expanded selected node as well as the new child node
 -}
-expansion :: MCTSNode -> Position -> MCTSNode
+expansion :: MCTSNode -> Position -> (MCTSNode, Maybe MCTSNode)
 expansion node pos =
     if any (\c -> m c == Just pos) (children node)
-        then node -- Child already exists, do not add duplicate
-        else node { children = newNode : children node }
+        then (node, Nothing) -- Child already exists, do not add duplicate
+        else (node { children = newNode : children node }, Just newNode)
     where
         bsNew = updateTurn pos (state node)
         newNode = MCTSNode {
             state = bsNew,
-            children = [ c | mv <- getPossibleMoves bsNew,
-                            let bsChild = updateTurn mv bsNew,
-                            let c = MCTSNode {
-                                state = bsChild,
-                                children = [],
-                                n_i = 0,
-                                t = 0.0,
-                                m = Just mv
-                            }
-                        ],
+            children = [],
             n_i = 0,
             t = 0.0,
             m = Just pos
@@ -335,28 +335,83 @@ backpropagation (parent:rest) updatedChild reward =
     in backpropagation rest updatedParent reward
 
 {-
-Run one iteration of MCTS: selection, expansion, simulation, backpropagation
+Run one iteration of MCTS: 
+1. selection
+2. expansion
+3. simulation
+4. backpropagation
 -}
 runMCTSIteration :: MCTSNode -> IO MCTSNode
 runMCTSIteration root = do
-    let (selectedNode, path) = selection root []
+    -- 1. selection, select the best leaf, starting from the root
+    let (selectedNode, path, _) = selection root []
     case m selectedNode of
-        Nothing -> return root -- Root it selected, cannot expand further
-        Just pos -> do
+        Nothing -> return root -- Root it selected, try expanding from the root
+        Just pos -> do  -- See if we can try expansion
             let possibleMoves = getPossibleMoves (state selectedNode)
             if null possibleMoves
             then return root -- No possible moves to expand
-            else do
+            else do 
                 gen <- newStdGen
                 let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
                 let move = possibleMoves !! randomIndex
-                let expandedNode = expansion selectedNode move
-                reward <- simulation expandedNode
-                let updatedRoot = backpropagation (reverse path) expandedNode reward
-                return updatedRoot
+                let (expandedNode, potentialChild) = expansion selectedNode move -- 2. Expansion
+                case potentialChild of
+                    Nothing             -> return root -- we could not successfull expand
+                    Just potentialChild -> do
+                        reward <- simulation potentialChild -- 3. Simulation
+                        -- expandedNode is the parent of the potentialChild
+                        let updatedRoot = backpropagation (expandedNode : reverse path) potentialChild reward
+                        return updatedRoot
+
+{-
+Trying a different implementation of MCTS
+Based on youtube video, we only do an expansion if the n_i value of a leaf != 0
+-}
+
+-- runMCTSIteration :: MCTSNode -> IO MCTSNode
+-- runMCTSIteration root = do
+--     -- 1. selection, select the best leaf or unexlpored, starting from the root
+--     let (selectedNode, path, needToExpand) = selection root []
+--     case needToExpand of
+--         True -> do -- need to expand first
+--             gen <- newStdGen
+--             let possibleMoves = getPossibleMoves (state selectedNode)
+--             let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
+--             let move = possibleMoves !! randomIndex
+--             let (expandedNode, potentialChild) = expansion selectedNode move -- 2. Expansion
+--             case potentialChild of
+--                 Nothing             -> return root -- we could not successfull expand
+--                 Just potentialChild -> do
+--                     reward <- simulation potentialChild -- 3. Simulation
+--                     -- expandedNode is the parent of the potentialChild
+--                     let updatedRoot = backpropagation (expandedNode : reverse path) potentialChild reward
+--                     return updatedRoot
+--         False -> do -- can directly rollout
+--             reward <- simulation selectedNode -- 3. Simulation
+--             let updatedRoot = backpropagation (reverse path) selectedNode reward
+--             return updatedRoot
+
+
+{-
+Add child node given the tree root, path to parent, and the new child node
+Return the child in the copied tree structure
+-}
+addChildMCTSNode :: MCTSNode -> [Maybe Position] -> MCTSNode -> MCTSNode
+addChildMCTSNode parent [] child = parent {children = child : children parent}  
+addChildMCTSNode node (curr_move : rest_moves) newChild = node {children = updatedChildren} where
+    updatedChildren = map updateHelper (children node) -- call updateHelper on all of the children of current node
+    updateHelper child = if m child == curr_move 
+                                    then addChildMCTSNode child rest_moves newChild
+                                    else child
 
 {-
 Run MCTS for a given number of iterations starting from the given root node
+Run MCTS for a given number of iterations starting from the given root node
+MCTSNode: root of tree
+[Maybe Position]: moves to get the child
+MCTSNode: child we are adding
+return new MCTSNode root where the child has been added
 -}
 runMCTS :: MCTSNode -> Int -> IO MCTSNode
 runMCTS root 0 = do
