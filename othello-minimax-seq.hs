@@ -1,13 +1,13 @@
-import System.IO
-import Data.Int
-import GHC.Base (VecElem(Int64ElemRep))
-import GHC.Arr
+import System.IO()
+import Data.Int()
+import GHC.Base() -- (VecElem(Int64ElemRep))
+-- import GHC.Arr
 
-import System.Posix.Internals (puts)
-import Data.List (maximumBy, minimumBy)
-import Data.Ord (comparing)
-import Debug.Trace (trace)
-import System.Random(newStdGen, randomR)
+import System.Posix.Internals()
+import Data.List (maximumBy)
+import Data.Ord() -- (comparing)
+import Debug.Trace() -- (trace)
+import System.Random(newStdGen, randomR) 
 
 {-
 Commands to compile and run this program:
@@ -24,10 +24,6 @@ stack ghc  --package random  -- -Wall -O2 -o othello othello-minimax-seq.hs
 type Position = (Int, Int)
 
 type Board = [[Int]]
-
-type Player = Int -- 0 means not taken, 1 means taken by player 1, 2 means taken by player 2
-
-type PDisks = [Position]
 
 
 data BoardState = BoardState {
@@ -49,15 +45,20 @@ gameBoard = [[0 | _ <- [1..cols]] | _ <- [1..rows]] :: [[Int]]
 
 
 updateBoardIndex :: Board -> Position -> Int -> Board
-updateBoardIndex board (i,j) val = prevRows ++ [updatedRow] ++ afterRows where
-    (prevRows, currRow : afterRows) = splitAt i board
-    (prevElems, currElem : afterElems) = splitAt j currRow
-    updatedRow = prevElems ++ [val] ++ afterElems
+updateBoardIndex board (i,j) val = 
+    case splitAt i board of
+        (prevRows, currRow : afterRows) ->
+            case splitAt j currRow of
+                (prevElems, _ : afterElems) -> 
+                    prevRows ++ [prevElems ++ [val] ++ afterElems] ++ afterRows
+                (_, _) -> board
+        (_, _) -> board
+
 
 updateBoardIndexes :: Board -> [Position] -> [Int] -> Board
-updateBoardIndexes board [] [] = board
 updateBoardIndexes board (x:xs) (y:ys) = updateBoardIndexes newBoard xs ys where
     newBoard = updateBoardIndex board x y
+updateBoardIndexes board _ _ = board
 
 {-
 Initialize the gameboard to start configuration and set current player to 1
@@ -109,7 +110,7 @@ Return a list of directions where both conditions are met
 If the list is non-empty, then the position is a valid move that satisfy both adjancy and flankinng rules
 -}
 adjacencyAndFlankingCheck :: BoardState -> Position -> [Position]
-adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentToOpp d && flankOpp d]
+adjacencyAndFlankingCheck bs (i,j) = [ d | d@(_,_) <- directions, isAdjacentToOpp d && flankOpp d]
     where
         b = board bs
         curPlayer = curr_player bs
@@ -133,13 +134,6 @@ adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentTo
                         val | val == curPlayer -> True
                         val | val == oppPlayer -> scan (x + di) (y + dj)
                         _ -> False
-
-switchPlayer :: BoardState -> BoardState
-switchPlayer bs = new_bs where
-    new_bs = BoardState {
-        board = board bs,
-        curr_player = if curr_player bs == 1 then 2 else 1
-    }
 
 {-
 Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
@@ -231,15 +225,16 @@ discCountHeuristic bs = (playerCount - oppCount) `div` 3
 
 {-
 miniMax algo
+Commented out to run miniMaxAlphaBeta
 -}
-miniMax :: BoardState -> Int -> Bool -> Int
--- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
-miniMax bs remainingDepth isMaximizingPlayer
-    | remainingDepth == 0 || null moves = evaluateBoard bs
-    | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
-    | otherwise          = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
-    where
-        moves = getPossibleMoves bs
+-- miniMax :: BoardState -> Int -> Bool -> Int
+-- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
+-- miniMax bs remainingDepth isMaximizingPlayer
+--     | remainingDepth == 0 || null moves = evaluateBoard bs
+--     | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
+--     | otherwise          = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
+--     where
+--         moves = getPossibleMoves bs
 
 
 
