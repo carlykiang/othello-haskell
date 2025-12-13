@@ -1,13 +1,12 @@
-import System.IO
-import Data.Int
-import GHC.Base (VecElem(Int64ElemRep))
-import GHC.Arr
+import System.IO()
+import Data.Int()
+import GHC.Base() 
 
-import System.Posix.Internals (puts)
-import Data.List (maximumBy, minimumBy)
-import Data.Ord (comparing)
-import Debug.Trace (trace)
-import System.Random(newStdGen, randomR)
+import System.Posix.Internals()
+import Data.List (maximumBy)
+import Data.Ord()
+import Debug.Trace()
+import System.Random(newStdGen, randomR) 
 import Control.Parallel.Strategies
 
 {-
@@ -15,7 +14,7 @@ Commands to compile and run this program:
 stack install random
 TODO: set it up as stack project with proper .yaml files in the long run to make compilations easier
 For now, run the following command in terminal to compile and run:
-stack ghc --package random -- -o othello othello-minimax-par.hs
+stack ghc --package random -- -Wall -O2 -o othello othello-minimax-par.hs
 stack ghc -- -Wall -O2 -threaded -rtsopts hw4
 ./othello
 
@@ -31,10 +30,6 @@ stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-
 type Position = (Int, Int)
 
 type Board = [[Int]]
-
-type Player = Int -- 0 means not taken, 1 means taken by player 1, 2 means taken by player 2
-
-type PDisks = [Position]
 
 
 data BoardState = BoardState {
@@ -56,15 +51,21 @@ gameBoard = [[0 | _ <- [1..cols]] | _ <- [1..rows]] :: [[Int]]
 
 
 updateBoardIndex :: Board -> Position -> Int -> Board
-updateBoardIndex board (i,j) val = prevRows ++ [updatedRow] ++ afterRows where
-    (prevRows, currRow : afterRows) = splitAt i board
-    (prevElems, currElem : afterElems) = splitAt j currRow
-    updatedRow = prevElems ++ [val] ++ afterElems
+updateBoardIndex board (i,j) val = 
+    case splitAt i board of
+        (prevRows, currRow : afterRows) ->
+            case splitAt j currRow of
+                (prevElems, _ : afterElems) -> 
+                    prevRows ++ [prevElems ++ [val] ++ afterElems] ++ afterRows
+                (_, _) -> board
+        (_, _) -> board
+
 
 updateBoardIndexes :: Board -> [Position] -> [Int] -> Board
-updateBoardIndexes board [] [] = board
 updateBoardIndexes board (x:xs) (y:ys) = updateBoardIndexes newBoard xs ys where
     newBoard = updateBoardIndex board x y
+updateBoardIndexes board _ _ = board
+
 
 {-
 Initialize the gameboard to start configuration and set current player to 1
@@ -77,9 +78,10 @@ initializeBoard = BoardState {
 
 {-
 Printing for Board
+Commented out because timed parallel calls will not print boards
 -}
-printBoard :: Board -> IO ()
-printBoard board = mapM_ (putStrLn . unwords . map show) board
+-- printBoard :: Board -> IO ()
+-- printBoard board = mapM_ (putStrLn . unwords . map show) board
 
 
 {-
@@ -116,7 +118,7 @@ Return a list of directions where both conditions are met
 If the list is non-empty, then the position is a valid move that satisfy both adjancy and flankinng rules
 -}
 adjacencyAndFlankingCheck :: BoardState -> Position -> [Position]
-adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentToOpp d && flankOpp d]
+adjacencyAndFlankingCheck bs (i,j) = [ d | d@(_,_) <- directions, isAdjacentToOpp d && flankOpp d]
     where
         b = board bs
         curPlayer = curr_player bs
@@ -141,12 +143,6 @@ adjacencyAndFlankingCheck bs (i,j) = [ d | d@(di,dj) <- directions, isAdjacentTo
                         val | val == oppPlayer -> scan (x + di) (y + dj)
                         _ -> False
 
-switchPlayer :: BoardState -> BoardState
-switchPlayer bs = new_bs where
-    new_bs = BoardState {
-        board = board bs,
-        curr_player = if curr_player bs == 1 then 2 else 1
-    }
 
 {-
 Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
@@ -277,25 +273,27 @@ Rewrite the maximum function that is used in miniMax to happen in parallel
 
 {-
 Rewrite the maximum function that is used in miniMax to happen in parallel
+Commented out helper methods
+Not used in final implementation
 -}
-parMaximum :: [Int] -> Int
-parMaximum [] = error "Cannot find maximum of empty list"
-parMaximum xs = maximum maximums
-    where 
-        list_chunks = splitChunks 5 xs
-        maximums = withStrategy (parList rseq) (map maximum list_chunks)
+-- parMaximum :: [Int] -> Int
+-- parMaximum [] = error "Cannot find maximum of empty list"
+-- parMaximum xs = maximum maximums
+--     where 
+--         list_chunks = splitChunks 5 xs
+--         maximums = withStrategy (parList rseq) (map maximum list_chunks)
 
-parMinimum :: [Int] -> Int
-parMinimum [] = error "Cannot find minimum of empty list"
-parMinimum xs = minimum minimums
-    where 
-        list_chunks = splitChunks 5 xs
-        minimums = withStrategy (parList rseq) (map minimum list_chunks)
+-- parMinimum :: [Int] -> Int
+-- parMinimum [] = error "Cannot find minimum of empty list"
+-- parMinimum xs = minimum minimums
+--     where 
+--         list_chunks = splitChunks 5 xs
+--         minimums = withStrategy (parList rseq) (map minimum list_chunks)
 
-splitChunks :: Int -> [a] -> [[a]]
-splitChunks _ [] = []
-splitChunks index xs = before : (splitChunks index after) where
-    (before, after) = splitAt index xs
+-- splitChunks :: Int -> [a] -> [[a]]
+-- splitChunks _ [] = []
+-- splitChunks index xs = before : (splitChunks index after) where
+--     (before, after) = splitAt index xs
 
 
 {-
@@ -334,53 +332,6 @@ noPrintGameLoop bs = do
                         return move
         let newGameState = updateTurn move bs
         noPrintGameLoop newGameState
-
-gameLoop :: BoardState -> IO ()
-gameLoop bs = do
-    let possibleMoves = getPossibleMoves bs
-    if null possibleMoves
-        then do
-            let oppPlayer = if curr_player bs == 1 then 2 else 1
-                oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
-            if null oppPossibleMoves
-                then do
-                    let winner = checkWinner bs
-                    if winner == 0
-                    then putStrLn "Game over! It's a tie!"
-                    else do 
-                        putStrLn $ "Game over! Winner is Player " ++ show winner
-                        putStrLn $ "Final Board:"
-                        printBoard (board bs)
-                        putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
-                        putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
-                else do
-                    putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
-                    gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
-    else do
-        putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
-        move <- if curr_player bs == 1
-                    then do
-                        -- Pick a random move for player 1
-                        gen <- newStdGen
-                        let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
-                        let move = possibleMoves !! randomIndex
-                        putStrLn $ "Player 1 (Random) chooses move " ++ show move
-                        return move
-                    else do
-                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
-                        putStrLn "Player 2 possible moves and scores:"
-                        mapM_ (\(m,score) -> putStrLn $ "Move: " ++ show m ++ ", Score: " ++ show score) possibleMovesWithScores
-                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
-                        putStrLn $ "Player 2 (MiniMax) chooses move " ++ show move
-                        return move
-        putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
-        putStrLn "BEFORE MOVE:"
-        printBoard (board bs)
-        let newGameState = updateTurn move bs
-        putStrLn "AFTER MOVE:"
-        printBoard (board newGameState)
-        gameLoop newGameState
-
 
 main :: IO ()
 main = do
