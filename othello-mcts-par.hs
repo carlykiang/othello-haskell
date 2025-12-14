@@ -11,6 +11,8 @@ import GHC.Generics (Generic)
 Commands to compile and run this program:
 stack install split
 stack install random
+Replace last number on line "let mctsRoot = runMCTSParallel rootNode 1000 gen 1" with number of threads to parallelize on
+Then run:
 stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par othello-mcts-par.hs
 ./othello-mcts-par
 -}
@@ -321,6 +323,9 @@ runMCTSParallel :: MCTSNode -> Int -> StdGen -> Int -> MCTSNode
 runMCTSParallel root iterations gen threadNum = mergedRoot
     where 
         (q, r) = iterations `divMod` threadNum
+        -- For simplicity, if iterations is not divisible by threadNum, we just give every thread an extra iteration
+        -- instead of figuring out how to distribute the remainder r (which may incur more overhead for distribution)
+        -- This also simplifies the code for splitting the random generators and for calling parMap rdeepseq
         iterationsPerThread = if r == 0 then q else q + 1
         gens = take (iterationsPerThread * threadNum) $ iterate (snd . split) gen
         gensGrouped = chunksOf iterationsPerThread gens
@@ -351,6 +356,82 @@ mergeChildren (x:xs) ys = mergedChild : mergeChildren xs ys
 mergeChildren _ _ = [] -- children root and children x should be the same, except each child's n_i and t
                        -- so both lists should have same length, and we don't need to worry about mismatch in length
 -- MCTS related functions end here
+
+{-
+gameLoop logic for alternating between players
+-- To illustrate that the MCTS is working, we make player 2 use miniMax to pick its moves
+-- For now, player 1 will just pick a random available move
+-- We should be able to see player 2 winning more often than player 1
+-}
+-- gameLoop :: BoardState -> IO ()
+-- gameLoop bs = do
+--     let possibleMoves = getPossibleMoves bs
+--     if null possibleMoves
+--         then do
+--             let oppPlayer = if curr_player bs == 1 then 2 else 1
+--                 oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
+--             if null oppPossibleMoves
+--                 then do
+--                     let winner = checkWinner bs
+--                     if winner == 0
+--                     then putStrLn "Game over! It's a tie!"
+--                     else do
+--                         putStrLn $ "Game over! Winner is Player " ++ show winner
+--                         -- putStrLn $ "Final Board:"
+--                         -- printBoard (board bs)
+--                         putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
+--                         putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
+--                 else do
+--                     putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
+--                     gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
+--     else do
+--         -- putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
+--         move <- if curr_player bs == 1
+--                     then do
+--                         -- Pick a random move for player 1
+--                         gen <- newStdGen
+--                         let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
+--                         let move = possibleMoves !! randomIndex
+--                         -- putStrLn $ "Player 1 (Random) chooses move " ++ show move
+--                         return move
+--                     else do
+--                         -- putStrLn $ "Player 2 (MCTS) chooses move "
+--                         let rootNode = MCTSNode {
+--                             state = bs,
+--                             children = [ c | mv <- possibleMoves,
+--                                             let bsNew = updateTurn mv bs,
+--                                             let c = MCTSNode {
+--                                                 state = bsNew,
+--                                                 children = [],
+--                                                 n_i = 0,
+--                                                 t = 0.0,
+--                                                 m = Just mv
+--                                             }
+--                                             ],
+--                             n_i = 0,
+--                             t = 0.0,
+--                             m = Nothing
+--                         }
+--                         gen <- newStdGen
+--                         -- Root Parallelization
+--                         -- Run MCTS for 1000 iterations in parallel
+--                         let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
+--                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
+--                         putStrLn $ "Possible moves for Player 2 " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
+--                         putStrLn $ "MCTS Root after iterations: " ++ show mctsRoot
+--                         let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
+--                         let move = case m bestChild of
+--                                         Just pos -> pos
+--                                         Nothing -> error "No move found. Something went wrong with MCTS implementation."
+--                         -- putStrLn $ "Player 2 (MCTS) chooses move " ++ show move
+--                         return move
+--         -- putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
+--         -- putStrLn "BEFORE MOVE:"
+--         -- printBoard (board bs)
+--         let newGameState = updateTurn move bs
+--         -- putStrLn "AFTER MOVE:"
+--         -- printBoard (board newGameState)
+--         gameLoop newGameState
 
 {-
 noPrintGameLoop logic for alternating between players without printing boards
@@ -413,5 +494,6 @@ noPrintGameLoop bs = do
 
 main :: IO ()
 main = do
+    -- gameLoop initializeBoard
     noPrintGameLoop initializeBoard
     putStrLn "Thanks for playing!"
