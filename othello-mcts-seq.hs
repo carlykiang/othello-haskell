@@ -5,8 +5,6 @@ import Data.Ord (comparing)
 {-
 Commands to compile and run this program:
 stack install random
-TODO: set it up as stack project with proper .yaml files in the long run to make compilations easier
-For now, run the following command in terminal to compile and run:
 stack ghc  --package random  -- -Wall -O2 -o othello-mcts-seq othello-mcts-seq.hs
 ./othello-mcts-seq
 -}
@@ -196,43 +194,36 @@ uctValue node parentN =
 {-
 Selection: select the best child to perform simulation based on UCT values
 Also keeps track of path from root to selected node for backpropagation later
-Boolean for if the leaf has been visited before return True (need to expand)
-    if leaf has not been visited before, return false, can directly simulate/rollout
 -}
-selection :: MCTSNode -> [MCTSNode] -> (MCTSNode, [MCTSNode], Bool)
+selection :: MCTSNode -> [MCTSNode] -> (MCTSNode, [MCTSNode])
 selection node path =
     if null (children node)
-        then if n_i node == 0
-            then (node, path, True)
-            else (node, path, False)
-        else selection bestChild (path ++ [node])
+    then (node, path)
+    else selection bestChild (path ++ [node])
     where
         bestChild = maximumBy (comparing (\child -> uctValue child (n_i node))) (children node)
 
 
 
 {-
-Expansion: expand the selected node by adding a new child node for one of its possible moves pos
-return the expanded selected node as well as the new child node
+Expansion: expand the selected node
+For each avalable action from current, add a new state to the children of the node / to the tree
 -}
-expansion :: MCTSNode -> Position -> (MCTSNode, Maybe MCTSNode)
-expansion node pos =
-    if any (\c -> m c == Just pos) (children node)
-        then (node, Nothing) -- Child already exists, do not add duplicate
-        else (node { children = newNode : children node }, Just newNode)
+expansion :: MCTSNode -> [Position] -> MCTSNode
+expansion node []     = node -- No possible moves to expand any further
+expansion node (x:xs) = expansion (node { children = newNode : children node }) xs
     where
-        bsNew = updateTurn pos (state node)
+        bsNew = updateTurn x (state node)
         newNode = MCTSNode {
             state = bsNew,
             children = [],
             n_i = 0,
             t = 0.0,
-            m = Just pos
+            m = Just x
         }
 
 {-
 Simulation: simulate a random playout from the given node's state until terminal state is reached
-t will be set to be heuristic score of the BoardState reached at terminal state, given by evaluateBoard
 -}
 simulation :: MCTSNode -> IO Double
 simulation node = do
@@ -259,8 +250,10 @@ evaluateBoardMTCS bs = fromIntegral (p2Count - p1Count)
 {-
 Backpropagation: propagate n_i and t values along the path from selected node back to root
 Also update children field of the node along the way
-[MCTSNode] is of the path from leaf to root, so we use the previous node to update the children field of the current node
-MCTSNode: previous node updated (the node we will use to update children field of current node in the path)
+[MCTSNode] is of the path from leaf to root
+            It is of the form [a, a's parent, a's grandparent, ...]
+            So we use the previous node to update the children field of the current node
+MCTSNode: previously updated node (the node we will use to update children field of current node in the path)
 Double: reward obtained from simulation
 MCTSNode: return the last node updated (AKA root node updated)
 -}
@@ -285,32 +278,36 @@ Run one iteration of MCTS:
 runMCTSIteration :: MCTSNode -> IO MCTSNode
 runMCTSIteration root = do
     -- 1. selection, select the best leaf, starting from the root
-    let (selectedNode, path, _) = selection root []
+    let (selectedNode, path) = selection root [] -- selection returns leaf node in current MCTS tree
     case m selectedNode of
-        Nothing -> return root -- Root it selected, try expanding from the root
+        Nothing -> return root -- Root is selected
         Just _ -> do  -- See if we can try expansion
             let possibleMoves = getPossibleMoves (state selectedNode)
             if null possibleMoves
             then do
-                -- Terminal node: still run simulation and backpropagation to update n_i and t values
-                reward <- simulation selectedNode
+                -- Terminal node: can directly evaluate without simulation
+                let reward = evaluateBoardMTCS (state selectedNode)
+                -- Still need to backpropagate the reward up the tree
                 let updatedRoot = backpropagation (reverse path) selectedNode reward
                 return updatedRoot
-            else do 
-                gen <- newStdGen
-                let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
-                let move = possibleMoves !! randomIndex
-                let (expandedNode, potentialChild) = expansion selectedNode move -- 2. Expansion
-                case potentialChild of
-                    Nothing             -> return root -- we could not successfull expand
-                    Just pc -> do
-                        reward <- simulation pc -- 3. Simulation
-                        -- expandedNode is the parent of the potentialChild
-                        let updatedRoot = backpropagation (expandedNode : reverse path) pc reward
-                        return updatedRoot
+            else do
+                -- is n_i for current 0?
+                if n_i selectedNode == 0
+                then do
+                    -- Directly simulate/rollout from selectedNode without expansion
+                    reward <- simulation selectedNode -- 3. Simulation
+                    let updatedRoot = backpropagation (reverse path) selectedNode reward
+                    return updatedRoot
+                else do
+                    -- Expand selectedNode, then simulate/rollout from the new child
+                    let expandedNode = expansion selectedNode possibleMoves
+                    let (childToSimulate, _) = selection expandedNode []
+                    reward <- simulation childToSimulate -- 3. Simulation
+                    -- expandedNode is the parent of the potentialChild
+                    let updatedRoot = backpropagation (expandedNode : reverse path) childToSimulate reward
+                    return updatedRoot
 
 {-
-Run MCTS for a given number of iterations starting from the given root node
 Run MCTS for a given number of iterations starting from the given root node
 MCTSNode: root of tree
 [Maybe Position]: moves to get the child
@@ -447,7 +444,7 @@ noPrintGameLoop bs = do
                             t = 0.0,
                             m = Nothing
                         }
-                        mctsRoot <- runMCTS rootNode 10000 -- Run MCTS for 10000 iterations
+                        mctsRoot <- runMCTS rootNode 1000 -- Run MCTS for 1000 iterations
                         let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
                         let move = case m bestChild of
                                         Just pos -> pos
@@ -461,5 +458,3 @@ main = do
     -- gameLoop initializeBoard
     noPrintGameLoop initializeBoard
     putStrLn "Thanks for playing!"
-    -- Simple testing for heuristics, can delete later
-
