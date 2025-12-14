@@ -1,4 +1,4 @@
-import System.Random (StdGen, newStdGen, randomR)
+import System.Random (StdGen, newStdGen, randomR, split)
 import Data.List (maximumBy)
 import Data.Ord (comparing)
 
@@ -225,10 +225,8 @@ expansion node (x:xs) = expansion (node { children = newNode : children node }) 
 {-
 Simulation: simulate a random playout from the given node's state until terminal state is reached
 -}
-simulation :: MCTSNode -> IO Double
-simulation node = do
-    gen <- newStdGen
-    return $ simulateFromState (state node) gen
+simulation :: MCTSNode -> StdGen -> Double
+simulation node gen = simulateFromState (state node) gen
 
 simulateFromState :: BoardState -> StdGen -> Double
 simulateFromState bs g =
@@ -275,51 +273,44 @@ Run one iteration of MCTS:
 3. simulation
 4. backpropagation
 -}
-runMCTSIteration :: MCTSNode -> IO MCTSNode
-runMCTSIteration root = do
+runMCTSIteration :: MCTSNode -> StdGen -> MCTSNode
+runMCTSIteration root gen =
     -- 1. selection, select the best leaf, starting from the root
     let (selectedNode, path) = selection root [] -- selection returns leaf node in current MCTS tree
-    case m selectedNode of
-        Nothing -> return root -- Root is selected
-        Just _ -> do  -- See if we can try expansion
+    in case m selectedNode of
+        Nothing -> root -- Root is selected
+        Just _ -> -- See if we can try expansion
             let possibleMoves = getPossibleMoves (state selectedNode)
-            if null possibleMoves
-            then do
-                -- Terminal node: can directly evaluate without simulation
-                let reward = evaluateBoardMTCS (state selectedNode)
-                -- Still need to backpropagate the reward up the tree
-                let updatedRoot = backpropagation (reverse path) selectedNode reward
-                return updatedRoot
-            else do
-                -- is n_i for current 0?
-                if n_i selectedNode == 0
-                then do
-                    -- Directly simulate/rollout from selectedNode without expansion
-                    reward <- simulation selectedNode -- 3. Simulation
-                    let updatedRoot = backpropagation (reverse path) selectedNode reward
-                    return updatedRoot
-                else do
-                    -- Expand selectedNode, then simulate/rollout from the new child
-                    let expandedNode = expansion selectedNode possibleMoves
-                    let (childToSimulate, _) = selection expandedNode []
-                    reward <- simulation childToSimulate -- 3. Simulation
-                    -- expandedNode is the parent of the potentialChild
-                    let updatedRoot = backpropagation (expandedNode : reverse path) childToSimulate reward
-                    return updatedRoot
+            in if null possibleMoves
+                then
+                    let reward = evaluateBoardMTCS (state selectedNode) -- Terminal node: can directly evaluate without simulation
+                        updatedRoot = backpropagation (reverse path) selectedNode reward -- Still need to backpropagate the reward up the tree
+                    in updatedRoot
+                else if n_i selectedNode == 0 -- is n_i for current 0?
+                    then
+                        -- Directly simulate/rollout from selectedNode without expansion
+                        let reward = simulation selectedNode (snd $ split gen) -- 3. Simulation
+                            updatedRoot = backpropagation (reverse path) selectedNode reward
+                        in updatedRoot
+                    else
+                        -- Expand selectedNode, then simulate/rollout from the new child
+                        let expandedNode = expansion selectedNode possibleMoves
+                            (childToSimulate, _) = selection expandedNode []
+                            reward = simulation childToSimulate (snd $ split gen)
+                            -- expandedNode is the parent of the potentialChild
+                            updatedRoot = backpropagation (expandedNode : reverse path) childToSimulate reward
+                        in updatedRoot
 
 {-
 Run MCTS for a given number of iterations starting from the given root node
 MCTSNode: root of tree
-[Maybe Position]: moves to get the child
-MCTSNode: child we are adding
-return new MCTSNode root where the child has been added
+Int: number of iterations to run
+StdGen: random generator for simulations
+return new MCTSNode root where the children have been added/updated according to MCTS iterations
 -}
-runMCTS :: MCTSNode -> Int -> IO MCTSNode
-runMCTS root 0 = do
-    return root
-runMCTS root n = do
-    newRoot <- runMCTSIteration root
-    runMCTS newRoot (n - 1)
+runMCTS :: MCTSNode -> Int -> StdGen -> MCTSNode
+runMCTS root 0 _   = root
+runMCTS root n gen = runMCTS (runMCTSIteration root gen) (n - 1) (snd $ split gen)
 
 -- MCTS related functions end here
 
@@ -379,7 +370,8 @@ gameLoop logic for alternating between players
 --                             t = 0.0,
 --                             m = Nothing
 --                         }
---                         mctsRoot <- runMCTS rootNode 1000 -- Run MCTS for 1000 iterations
+--                         gen <- newStdGen
+--                         let mctsRoot = runMCTS rootNode 1000 gen -- Run MCTS for 1000 iterations
 --                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
 --                         putStrLn $ "Possible moves for Player 2 " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
 --                         putStrLn $ "MCTS Root after iterations: " ++ show mctsRoot
@@ -444,9 +436,10 @@ noPrintGameLoop bs = do
                             t = 0.0,
                             m = Nothing
                         }
-                        mctsRoot <- runMCTS rootNode 1000 -- Run MCTS for 1000 iterations
-                        let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
-                        let move = case m bestChild of
+                        gen <- newStdGen
+                        let mctsRoot = runMCTS rootNode 1000 gen -- Run MCTS for 1000 iterations
+                            bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
+                            move = case m bestChild of
                                         Just pos -> pos
                                         Nothing -> error "No move found. Something went wrong with MCTS implementation."
                         return move
