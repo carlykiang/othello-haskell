@@ -439,7 +439,7 @@ gameLoop logic for alternating between players
 --                         -- Run MCTS for 1000 iterations in parallel
 --                         -- Attempt 1
 --                         -- let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
---                         -- Attempt 2
+--                         -- Attempt 2 / Attempt 3
 --                         let mctsRoot = runMCTSParallel rootNode 1000 gen
 --                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
 --                         putStrLn $ "Possible moves for Player 2 " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
