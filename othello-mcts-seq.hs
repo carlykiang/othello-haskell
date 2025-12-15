@@ -17,9 +17,6 @@ type Board = [[Int]] -- 0: empty, 1: player 1's disk, 2: player 2's disk
 data BoardState = BoardState {
     board       :: Board,
     curr_player :: Int
-    -- Temporarily commenting out PDisks to focus on core logic first
-    -- p1disks     :: PDisks,
-    -- p2disks     :: PDisks
 } deriving (Show)
 
 rows :: Int
@@ -258,9 +255,8 @@ MCTSNode: return the last node updated (AKA root node updated)
 backpropagation :: [MCTSNode] -> MCTSNode -> Double -> MCTSNode
 backpropagation [] updatedNode _ = updatedNode
 backpropagation (parent:rest) updatedChild reward =
-    let updatedChild' = updatedChild { n_i = n_i updatedChild + 1, t = t updatedChild + reward }
-        updatedParent = parent {
-            children = map (\c -> if m c == m updatedChild' then updatedChild' else c) (children parent),
+    let updatedParent = parent {
+            children = map (\c -> if m c == m updatedChild then updatedChild else c) (children parent),
             n_i = n_i parent + 1,
             t = t parent + reward
         }
@@ -277,29 +273,38 @@ runMCTSIteration :: MCTSNode -> StdGen -> MCTSNode
 runMCTSIteration root gen =
     -- 1. selection, select the best leaf, starting from the root
     let (selectedNode, path) = selection root [] -- selection returns leaf node in current MCTS tree
-    in case m selectedNode of
-        Nothing -> root -- Root is selected
-        Just _ -> -- See if we can try expansion
-            let possibleMoves = getPossibleMoves (state selectedNode)
-            in if null possibleMoves
-                then
-                    let reward = evaluateBoardMTCS (state selectedNode) -- Terminal node: can directly evaluate without simulation
-                        updatedRoot = backpropagation (reverse path) selectedNode reward -- Still need to backpropagate the reward up the tree
-                    in updatedRoot
-                else if n_i selectedNode == 0 -- is n_i for current 0?
-                    then
-                        -- Directly simulate/rollout from selectedNode without expansion
-                        let reward = simulation selectedNode (snd $ split gen) -- 3. Simulation
-                            updatedRoot = backpropagation (reverse path) selectedNode reward
-                        in updatedRoot
-                    else
-                        -- Expand selectedNode, then simulate/rollout from the new child
-                        let expandedNode = expansion selectedNode possibleMoves
-                            (childToSimulate, _) = selection expandedNode []
-                            reward = simulation childToSimulate (snd $ split gen)
-                            -- expandedNode is the parent of the potentialChild
-                            updatedRoot = backpropagation (expandedNode : reverse path) childToSimulate reward
-                        in updatedRoot
+        possibleMoves = getPossibleMoves (state selectedNode)
+    in  if null possibleMoves
+        then
+            let reward = evaluateBoardMTCS (state selectedNode) -- Terminal node: can directly evaluate without simulation
+                selectedNode' = selectedNode {
+                    n_i = n_i selectedNode + 1,
+                    t = t selectedNode + reward
+                }
+                updatedRoot = backpropagation (reverse path) selectedNode' reward -- Still need to backpropagate the reward up the tree
+            in updatedRoot
+        else if n_i selectedNode == 0 && m selectedNode /= Nothing -- is n_i for current 0? Also need to make sure it's not root
+            then
+                -- Directly simulate/rollout from selectedNode without expansion
+                let reward = simulation selectedNode (snd $ split gen) -- 3. Simulation
+                    selectedNode' = selectedNode {
+                        n_i = n_i selectedNode + 1,
+                        t = t selectedNode + reward
+                    }
+                    updatedRoot = backpropagation (reverse path) selectedNode' reward
+                in updatedRoot
+            else
+                -- Expand selectedNode, then simulate/rollout from the new child
+                let expandedNode = expansion selectedNode possibleMoves
+                    (childToSimulate, _) = selection expandedNode []
+                    reward = simulation childToSimulate (snd $ split gen)
+                    -- expandedNode is the parent of the updated child (childToSimulate')
+                    childToSimulate' = childToSimulate {
+                        n_i = n_i childToSimulate + 1,
+                        t = t childToSimulate + reward
+                    }
+                    updatedRoot = backpropagation (expandedNode : reverse path) childToSimulate' reward
+                in updatedRoot
 
 {-
 Run MCTS for a given number of iterations starting from the given root node
@@ -357,16 +362,7 @@ gameLoop logic for alternating between players
 --                         -- putStrLn $ "Player 2 (MCTS) chooses move "
 --                         let rootNode = MCTSNode {
 --                             state = bs,
---                             children = [ c | mv <- possibleMoves,
---                                             let bsNew = updateTurn mv bs,
---                                             let c = MCTSNode {
---                                                 state = bsNew,
---                                                 children = [],
---                                                 n_i = 0,
---                                                 t = 0.0,
---                                                 m = Just mv
---                                             }
---                                             ],
+--                             children = [],
 --                             n_i = 0,
 --                             t = 0.0,
 --                             m = Nothing
@@ -424,16 +420,7 @@ noPrintGameLoop bs = do
                     else do
                         let rootNode = MCTSNode {
                             state = bs,
-                            children = [ c | mv <- possibleMoves,
-                                            let bsNew = updateTurn mv bs,
-                                            let c = MCTSNode {
-                                                state = bsNew,
-                                                children = [],
-                                                n_i = 0,
-                                                t = 0.0,
-                                                m = Just mv
-                                            }
-                                            ],
+                            children = [],
                             n_i = 0,
                             t = 0.0,
                             m = Nothing
