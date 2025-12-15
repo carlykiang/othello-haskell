@@ -11,7 +11,9 @@ import GHC.Generics (Generic)
 Commands to compile and run this program:
 stack install split
 stack install random
-Replace last number on line "let mctsRoot = runMCTSParallel rootNode 1000 gen 1" with number of threads to parallelize on
+
+If replicating result from Attempt 1, replace last number on line "let mctsRoot = runMCTSParallel rootNode 1000 gen 1" with number of threads to parallelize on
+
 Then run:
 stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par othello-mcts-par.hs
 ./othello-mcts-par
@@ -318,19 +320,40 @@ runMCTS root _ []  = root
 runMCTS root 0 _   = root
 runMCTS root n (g:gs) = runMCTS (runMCTSIteration root g) (n - 1) gs
 
--- Attempt 1
-runMCTSParallel :: MCTSNode -> Int -> StdGen -> Int -> MCTSNode
-runMCTSParallel root iterations gen threadNum = mergedRoot
-    where 
-        (q, r) = iterations `divMod` threadNum
-        -- For simplicity, if iterations is not divisible by threadNum, we just give every thread an extra iteration
-        -- instead of figuring out how to distribute the remainder r (which may incur more overhead for distribution)
-        -- This also simplifies the code for splitting the random generators and for calling parMap rdeepseq
-        iterationsPerThread = if r == 0 then q else q + 1
-        gens = take (iterationsPerThread * threadNum) $ iterate (snd . split) gen
-        gensGrouped = chunksOf iterationsPerThread gens
-        updatedRoots = parMap rdeepseq (\g -> runMCTS root iterationsPerThread g) gensGrouped
-        mergedRoot = mergeMCTSRuns (tail updatedRoots) (head updatedRoots)
+-- Attempt 1: split iterations evenly among threads
+-- runMCTSParallel :: MCTSNode -> Int -> StdGen -> Int -> MCTSNode
+-- runMCTSParallel root iterations gen threadNum = mergedRoot
+--     where 
+--         (q, r) = iterations `divMod` threadNum
+--         -- For simplicity, if iterations is not divisible by threadNum, we just give every thread an extra iteration
+--         -- instead of figuring out how to distribute the remainder r (which may incur more overhead for distribution)
+--         -- This also simplifies the code for splitting the random generators and for calling parMap rdeepseq
+--         iterationsPerThread = if r == 0 then q else q + 1
+--         gens = take (iterationsPerThread * threadNum) $ iterate (snd . split) gen
+--         gensGrouped = chunksOf iterationsPerThread gens
+--         updatedRoots = parMap rdeepseq (\g -> runMCTS root iterationsPerThread g) gensGrouped
+--         mergedRoot = mergeMCTSRuns (tail updatedRoots) (head updatedRoots)
+
+-- Attempt 2: split 1000 iterations into chunks of 10 iterations each, and run each chunk in parallel
+-- let the runtime dynamically allocate threads to handle each chunk
+runMCTSParallel :: MCTSNode -> Int -> StdGen -> MCTSNode
+runMCTSParallel root iterations gen = mergedRoot
+    where
+        gens = take iterations $ iterate (snd . split) gen
+        gensGrouped = chunksOf 10 gens
+        updatedRoots = parMap rdeepseq (\g -> runMCTS root 10 g) gensGrouped
+        -- Attempt 2: original mergeMCTSRuns
+        -- mergedRoot = mergeMCTSRuns (tail updatedRoots) (head updatedRoots)
+        -- Attempt 3: build upon Attempt 2, parallelize mergeMCTSRuns (mergeMCTSRunsParallel)
+        mergedRoot = mergeMCTSRunsParallel updatedRoots
+
+mergeMCTSRunsParallel :: [MCTSNode] -> MCTSNode
+mergeMCTSRunsParallel [] = error "Something is wrong with mergeMCTSRunsParallel" -- Should not really happen
+mergeMCTSRunsParallel [x] = x
+mergeMCTSRunsParallel xs = mergeMCTSRunsParallel mergedChunks
+    where
+        chunks = chunksOf 10 xs
+        mergedChunks = parMap rdeepseq (\c -> mergeMCTSRuns (tail c) (head c)) chunks
 
 mergeMCTSRuns :: [MCTSNode] -> MCTSNode -> MCTSNode
 mergeMCTSRuns [] root = root
@@ -415,7 +438,10 @@ gameLoop logic for alternating between players
 --                         gen <- newStdGen
 --                         -- Root Parallelization
 --                         -- Run MCTS for 1000 iterations in parallel
---                         let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
+--                         -- Attempt 1
+--                         -- let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
+--                         -- Attempt 2
+--                         let mctsRoot = runMCTSParallel rootNode 1000 gen
 --                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
 --                         putStrLn $ "Possible moves for Player 2 " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
 --                         putStrLn $ "MCTS Root after iterations: " ++ show mctsRoot
@@ -483,8 +509,11 @@ noPrintGameLoop bs = do
                         gen <- newStdGen
                         -- Root Parallelization
                         -- Run MCTS for 1000 iterations in parallel
-                        let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
-                            bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
+                        -- Attempt 1
+                        -- let mctsRoot = runMCTSParallel rootNode 1000 gen 1 -- Change the last number to indicate number of threads we can parallelize on
+                        -- Attempt 2 / Attempt 3
+                        let mctsRoot = runMCTSParallel rootNode 1000 gen
+                        let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
                             move = case m bestChild of
                                         Just pos -> pos
                                         Nothing -> error "No move found. Something went wrong with MCTS implementation."
