@@ -1,12 +1,23 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Avoid lambda" #-}
 import System.Random (StdGen, newStdGen, randomR, split)
 import Data.List (maximumBy)
+import Data.List.Split (chunksOf)
 import Data.Ord (comparing)
+import Control.Parallel.Strategies
+import GHC.Generics (Generic)
 
 {-
+This file contains logic for chunked root parallelized MCTS (version 2)
+
 Commands to compile and run this program:
 stack install random
-stack ghc  --package random  -- -Wall -O2 -o othello-mcts-seq othello-mcts-seq.hs
-./othello-mcts-seq
+
+stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par-v2 othello-mcts-par-v2.hs
+./othello-mcts-par-v2 +RTS -N2 -s -l     
+./threadscope othello-mcts-par-v2.eventlog
 -}
 
 -- Game types
@@ -17,7 +28,7 @@ type Board = [[Int]] -- 0: empty, 1: player 1's disk, 2: player 2's disk
 data BoardState = BoardState {
     board       :: Board,
     curr_player :: Int
-} deriving (Show)
+} deriving (Show, Generic, NFData)
 
 rows :: Int
 rows = 8
@@ -51,14 +62,6 @@ initializeBoard = BoardState {
     board = updateBoardIndexes gameBoard [(3,3),(4,4),(4,3),(3,4)] [1,1,2,2],
     curr_player = 1
 }
-
-{-
-Printing for Board
-Commented out because noPrintGameLoop will not print boards
--}
--- printBoard :: Board -> IO ()
--- printBoard board = mapM_ (putStrLn . unwords . map show) board
-
 
 {-
 Return the number at index (i,j) of the board
@@ -178,7 +181,7 @@ data MCTSNode = MCTSNode {
     n_i         :: Int,
     t           :: Double,
     m           :: Maybe Position -- The move that led to this state; Nothing for root node so we use Maybe
-} deriving (Show)
+} deriving (Show, Generic, NFData)
 
 {-
 Calculate UCT value for a given MCTSNode
@@ -318,74 +321,43 @@ runMCTS root _ []  = root
 runMCTS root 0 _   = root
 runMCTS root n (g:gs) = runMCTS (runMCTSIteration root g) (n - 1) gs
 
+
+{- Version 2: split 1000 iterations into chunks of 10 iterations each, and run each chunk in parallel
+let the runtime dynamically allocate threads to handle each chunk -}
+runMCTSParallel :: MCTSNode -> Int -> StdGen -> MCTSNode
+runMCTSParallel root iterations gen = mergedRoot
+    where
+        gens = take iterations $ iterate (snd . split) gen
+        gensGrouped = chunksOf 10 gens
+        updatedRoots = parMap rdeepseq (\g -> runMCTS root 10 g) gensGrouped
+        mergedRoot = mergeMCTSRuns (tail updatedRoots) (head updatedRoots)
+
+
+mergeMCTSRuns :: [MCTSNode] -> MCTSNode -> MCTSNode
+mergeMCTSRuns [] root = root
+mergeMCTSRuns (x:xs) root = mergeMCTSRuns xs mergedRoot
+    where
+        mergedRoot = root {
+            n_i = n_i root + n_i x,
+            t = t root + t x,
+            children = mergeChildren (children root) (children x)
+        }
+
+mergeChildren :: [MCTSNode] -> [MCTSNode] -> [MCTSNode]
+mergeChildren (x:xs) ys = mergedChild : mergeChildren xs ys
+    where
+        move = m x
+        y = head $ filter (\child -> m child == move) ys -- find corresponding child in ys based on move
+        mergedChild = x {
+            n_i = n_i x + n_i y,
+            t = t x + t y,
+            m = move, -- both children should have same move
+            children = [] -- We don't need to go deeper since we only care about root's children for MCTS decision making
+        }
+mergeChildren _ _ = [] -- children root and children x should be the same, except each child's n_i and t
+                       -- so both lists should have same length, and we don't need to worry about mismatch in length
 -- MCTS related functions end here
 
-
-{-
-gameLoop logic for alternating between players
--- To illustrate that the MCTS is working, we make player 2 use miniMax to pick its moves
--- For now, player 1 will just pick a random vailable move
--- We should be able to see player 2 winning more often than player 1
--}
--- gameLoop :: BoardState -> IO ()
--- gameLoop bs = do
---     let possibleMoves = getPossibleMoves bs
---     if null possibleMoves
---         then do
---             let oppPlayer = if curr_player bs == 1 then 2 else 1
---                 oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
---             if null oppPossibleMoves
---                 then do
---                     let winner = checkWinner bs
---                     if winner == 0
---                     then putStrLn "Game over! It's a tie!"
---                     else do
---                         putStrLn $ "Game over! Winner is Player " ++ show winner
---                         -- putStrLn $ "Final Board:"
---                         -- printBoard (board bs)
---                         putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
---                         putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
---                 else do
---                     putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
---                     gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
---     else do
---         -- putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
---         move <- if curr_player bs == 1
---                     then do
---                         -- Pick a random move for player 1
---                         gen <- newStdGen
---                         let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
---                         let move = possibleMoves !! randomIndex
---                         -- putStrLn $ "Player 1 (Random) chooses move " ++ show move
---                         return move
---                     else do
---                         -- putStrLn $ "Player 2 (MCTS) chooses move "
---                         let rootNode = MCTSNode {
---                             state = bs,
---                             children = [],
---                             n_i = 0,
---                             t = 0.0,
---                             m = Nothing
---                         }
---                         gen <- newStdGen
---                         let gens = take 1000 $ iterate (snd . split) gen
---                             mctsRoot = runMCTS rootNode 1000 gens -- Run MCTS for 1000 iterations
---                         -- Print statements to make sure the MTCS actually works and results are propagated back to root
---                         putStrLn $ "Possible moves for Player 2 " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
---                         putStrLn $ "MCTS Root after iterations: " ++ show mctsRoot
---                         let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
---                         let move = case m bestChild of
---                                         Just pos -> pos
---                                         Nothing -> error "No move found. Something went wrong with MCTS implementation."
---                         -- putStrLn $ "Player 2 (MCTS) chooses move " ++ show move
---                         return move
---         -- putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
---         -- putStrLn "BEFORE MOVE:"
---         -- printBoard (board bs)
---         let newGameState = updateTurn move bs
---         -- putStrLn "AFTER MOVE:"
---         -- printBoard (board newGameState)
---         gameLoop newGameState
 
 {-
 noPrintGameLoop logic for alternating between players without printing boards
@@ -426,9 +398,9 @@ noPrintGameLoop bs = do
                             m = Nothing
                         }
                         gen <- newStdGen
-                        let gens = take 1000 $ iterate (snd . split) gen
-                            mctsRoot = runMCTS rootNode 1000 gens -- Run MCTS for 1000 iterations
-                            bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
+                        -- Attempt 2 
+                        let mctsRoot = runMCTSParallel rootNode 1000 gen
+                        let bestChild = maximumBy (comparing (\child -> uctValue child (n_i mctsRoot))) (children mctsRoot)
                             move = case m bestChild of
                                         Just pos -> pos
                                         Nothing -> error "No move found. Something went wrong with MCTS implementation."
@@ -438,6 +410,4 @@ noPrintGameLoop bs = do
 
 main :: IO ()
 main = do
-    -- gameLoop initializeBoard
     noPrintGameLoop initializeBoard
-    putStrLn "Thanks for playing!"
