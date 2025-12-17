@@ -1,18 +1,9 @@
 import subprocess
 import re
-
-# Benchmarking script for comparing parallelized minimax (without alpha-beta pruning) vs sequential minimax (with alpha-beta pruning) vs parallelized minimax (with alpha-beta pruning) in Othello
-# Result: https://docs.google.com/spreadsheets/d/1KGVDMUBALCCqr3oS2dOiXjDoIqsVjbt3bKWB6a7yBC8/edit?gid=952670711#gid=952670711
-
-# parallelized minimax (without alpha-beta pruning)
-# Compile parallelized minimax othello using: stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
-
-# sequential minimax (with alpha-beta pruning)
-# Compile sequential minimax othello with alpha-beta pruning using: stack ghc  --package random  -- -Wall -O2 -o othello othello-minimax-seq.hs
-# ["./othello", "+RTS", "-s"], capture_output=True, text=True
-
-# parallelized minimax (with alpha-beta pruning)
-# Compile parallelized minimax othello with alpha-beta pruning using: stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-a-b othello-minimax-par.hs
+import sys
+# Benchmarking script for comparing parallelized othello implementations
+# Note: MCTS Version 1 will require edits made to the source file, othello-mcts-par-v1.hs
+# Check othello-mcts-par-v1.hs for more details
 
 NUM_RUNS = 100
 THREADS = 8
@@ -25,26 +16,23 @@ overflowed_sparks = []
 gc_sparks = []
 fizzled_sparks = []
 
-minimax_commands = [
-    ["./othello-parbuffer", "+RTS", "-N1", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N2", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N3", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N4", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N5", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N6", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N7", "-s"],
-    ["./othello-parbuffer", "+RTS", "-N8", "-s"]
-]
 
-mcts_commands = [
-    ["./othello-mcts-par", "+RTS", "-N1", "-s"],
-    ["./othello-mcts", "+RTS", "-N2", "-s"],
-    ["./othello-mcts", "+RTS", "-N3", "-s"],
-    ["./othello-mcts", "+RTS", "-N4", "-s"],
-    ["./othello-mcts", "+RTS", "-N5", "-s"],
-    ["./othello-mcts", "+RTS", "-N6", "-s"],
-    ["./othello-mcts", "+RTS", "-N7", "-s"],
-    ["./othello-mcts", "+RTS", "-N8", "-s"]
+if len(sys.argv) != 2:
+    print("Please provide the name of the executable you would like to benchmark in the format ./executable_name")
+    sys.exit()
+
+executable = sys.argv[1]
+
+
+commands = [
+    [executable, "+RTS", "-N1", "-s"],
+    [executable, "+RTS", "-N2", "-s"],
+    [executable, "+RTS", "-N3", "-s"],
+    [executable, "+RTS", "-N4", "-s"],
+    [executable, "+RTS", "-N5", "-s"],
+    [executable, "+RTS", "-N6", "-s"],
+    [executable, "+RTS", "-N7", "-s"],
+    [executable, "+RTS", "-N8", "-s"]
 ]
 
 for i in range(THREADS):
@@ -59,7 +47,7 @@ for i in range(THREADS):
     for _ in range(NUM_RUNS):
     
         result = subprocess.run(
-            minimax_commands[i], capture_output=True, text=True
+            commands[i], capture_output=True, text=True
         )
 
         # Keep track of player 2's winning rate
