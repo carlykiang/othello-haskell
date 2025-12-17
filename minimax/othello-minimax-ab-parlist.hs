@@ -9,20 +9,16 @@ import Debug.Trace()
 import System.Random(newStdGen, randomR) 
 import Control.Parallel.Strategies
 
+
 {-
+This file contains logic for parallelized minimax with alpha beta pruning using parList
+
 Commands to compile and run this program:
 stack install random
-TODO: set it up as stack project with proper .yaml files in the long run to make compilations easier
-For now, run the following command in terminal to compile and run:
-stack ghc --package random -- -Wall -O2 -o othello othello-minimax-par.hs
-stack ghc -- -Wall -O2 -threaded -rtsopts hw4
-./othello
 
-stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello othello-minimax-par.hs
-./othello +RTS -N2 -s      
-
-./othello +RTS -N1 -s -l
-./threadscope othello.eventlog
+stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-minimax-ab-parlist othello-minimax-ab-parlist.hs
+./othello-minimax-ab-parlist +RTS -N2 -s -l     
+./threadscope othello-minimax-ab-parlist.eventlog
 -}
 
 
@@ -35,9 +31,6 @@ type Board = [[Int]]
 data BoardState = BoardState {
     board       :: Board,
     curr_player :: Int
-    -- Temporarily commenting out PDisks to focus on core logic first
-    -- p1disks     :: PDisks,
-    -- p2disks     :: PDisks
 } deriving (Show)
 
 rows :: Int
@@ -75,13 +68,6 @@ initializeBoard = BoardState {
     board = updateBoardIndexes gameBoard [(3,3),(4,4),(4,3),(3,4)] [1,1,2,2],
     curr_player = 1
 }
-
-{-
-Printing for Board
-Commented out because timed parallel calls will not print boards
--}
--- printBoard :: Board -> IO ()
--- printBoard board = mapM_ (putStrLn . unwords . map show) board
 
 
 {-
@@ -195,7 +181,6 @@ checkWinner bs
 {-
 Given a BoardState, return heuristic score of board
 -}
--- TODO
 evaluateBoard :: BoardState -> Int 
 evaluateBoard bs = 2*(cornerHeuristic bs) + (mobilityHeuristic bs) + (discCountHeuristic bs)
 
@@ -232,25 +217,6 @@ discCountHeuristic bs = (playerCount - oppCount) `div` 3
         oppCount = countDisc bs oppPlayer
 
 
-{-
-miniMax algo for deciding next moves
-Player 1: 1000
-Player 2: -1000
-depth starts at a user defined, until we reach 0
-How to write minimax in haskell?
--}
--- miniMax :: BoardState -> Int -> Bool -> Int
--- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
--- miniMax bs remainingDepth isMaximizingPlayer
---     | remainingDepth == 0 || null moves = evaluateBoard bs
---     | isMaximizingPlayer = if remainingDepth >= 2
---                            then maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] -- `using` parBuffer 8 rdeepseq)
---                            else maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` rseq
---     | otherwise = if remainingDepth >= 2
---                   then minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq--`using` parBuffer 10 rdeepseq)
---                   else minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` rseq
---     where
---         moves = getPossibleMoves bs
 
 {-
 miniMax with AlphaBeta, referenced from
@@ -273,49 +239,6 @@ miniMaxAlphaBeta bs remainingDepth False alpha beta = go beta 10000 [updateTurn 
                         in  if v' <= alpha then v'
                             else go (min b v') v' ss
     go _ v [] = v
-
-{-
-Writing alpha beta pruning helper method
-
-
--}
--- miniMax :: BoardState -> Int -> Bool -> Int
--- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
--- miniMax bs remainingDepth isMaximizingPlayer
---     | remainingDepth == 0 || null moves = evaluateBoard bs
---     | isMaximizingPlayer = parMaximum ([miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves] `using` parBuffer 3 rdeepseq)
---     | otherwise = parMinimum ([miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves] `using` parBuffer 3 rdeepseq)
---     where
---         moves = getPossibleMoves bs
-
-{-
-Rewrite the maximum function that is used in miniMax to happen in parallel
--}
-
-
-{-
-Rewrite the maximum function that is used in miniMax to happen in parallel
-Commented out helper methods
-Not used in final implementation
--}
--- parMaximum :: [Int] -> Int
--- parMaximum [] = error "Cannot find maximum of empty list"
--- parMaximum xs = maximum maximums
---     where 
---         list_chunks = splitChunks 5 xs
---         maximums = withStrategy (parList rseq) (map maximum list_chunks)
-
--- parMinimum :: [Int] -> Int
--- parMinimum [] = error "Cannot find minimum of empty list"
--- parMinimum xs = minimum minimums
---     where 
---         list_chunks = splitChunks 5 xs
---         minimums = withStrategy (parList rseq) (map minimum list_chunks)
-
--- splitChunks :: Int -> [a] -> [[a]]
--- splitChunks _ [] = []
--- splitChunks index xs = before : (splitChunks index after) where
---     (before, after) = splitAt index xs
 
 
 {-
@@ -349,8 +272,7 @@ noPrintGameLoop bs = do
                         let move = possibleMoves !! randomIndex
                         return move
                     else do
-                        -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
-                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ] `using` parBuffer 8 rdeepseq
+                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ] `using` parList rdeepseq
                         let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores 
                         return move
         let newGameState = updateTurn move bs
@@ -358,7 +280,5 @@ noPrintGameLoop bs = do
 
 main :: IO ()
 main = do
-    -- gameLoop initializeBoard
     noPrintGameLoop initializeBoard
-    putStrLn "Thanks for playing!"
-    -- Simple testing for heuristics, can delete later
+

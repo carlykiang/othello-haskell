@@ -1,21 +1,23 @@
 import System.IO()
 import Data.Int()
-import GHC.Base() -- (VecElem(Int64ElemRep))
--- import GHC.Arr
+import GHC.Base() 
 
 import System.Posix.Internals()
 import Data.List (maximumBy)
-import Data.Ord() -- (comparing)
-import Debug.Trace() -- (trace)
+import Data.Ord()
+import Debug.Trace()
 import System.Random(newStdGen, randomR) 
+import Control.Parallel.Strategies
 
 {-
+This file contains logic for parallelized minimax without alpha beta pruning using parList
+
 Commands to compile and run this program:
 stack install random
-TODO: set it up as stack project with proper .yaml files in the long run to make compilations easier
-For now, run the following command in terminal to compile and run:
-stack ghc  --package random  -- -Wall -O2 -o othello othello-minimax-seq.hs
-./othello
+
+stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-minimax-parlist othello-minimax-parlist.hs
+./othello-minimax-parlist +RTS -N2 -s -l     
+./threadscope othello-minimax-parlist.eventlog
 -}
 
 
@@ -28,9 +30,6 @@ type Board = [[Int]]
 data BoardState = BoardState {
     board       :: Board,
     curr_player :: Int
-    -- Temporarily commenting out PDisks to focus on core logic first
-    -- p1disks     :: PDisks,
-    -- p2disks     :: PDisks
 } deriving (Show)
 
 rows :: Int
@@ -59,6 +58,7 @@ updateBoardIndexes board (x:xs) (y:ys) = updateBoardIndexes newBoard xs ys where
     newBoard = updateBoardIndex board x y
 updateBoardIndexes board _ _ = board
 
+
 {-
 Initialize the gameboard to start configuration and set current player to 1
 -}
@@ -67,14 +67,6 @@ initializeBoard = BoardState {
     board = updateBoardIndexes gameBoard [(3,3),(4,4),(4,3),(3,4)] [1,1,2,2],
     curr_player = 1
 }
-
-{-
-Printing for Board
-Commented out because noPrintGameLoop will not print boards
--}
--- printBoard :: Board -> IO ()
--- printBoard board = mapM_ (putStrLn . unwords . map show) board
-
 
 {-
 Return the number at index (i,j) of the board
@@ -135,6 +127,7 @@ adjacencyAndFlankingCheck bs (i,j) = [ d | d@(_,_) <- directions, isAdjacentToOp
                         val | val == oppPlayer -> scan (x + di) (y + dj)
                         _ -> False
 
+
 {-
 Given the position of the to-be-placed disc of current player and BoardState, update the discs on board and change curr_player to opponent player
 to return an up-to-date BoardState to keep the game going
@@ -144,7 +137,7 @@ updateTurn :: Position -> BoardState -> BoardState
 updateTurn (i,j) bs = BoardState {
     board = updatedBoard,
     curr_player = oppPlayer
-}
+} 
     where
         b = board bs
         curPlayer = curr_player bs
@@ -187,7 +180,7 @@ checkWinner bs
 Given a BoardState, return heuristic score of board
 -}
 -- TODO
-evaluateBoard :: BoardState -> Int
+evaluateBoard :: BoardState -> Int 
 evaluateBoard bs = 2*(cornerHeuristic bs) + (mobilityHeuristic bs) + (discCountHeuristic bs)
 
 
@@ -199,10 +192,10 @@ cornerHeuristic :: BoardState -> Int
 cornerHeuristic bs = c1 + c2 + c3 + c4 where
     b = board bs
     curPlayer = curr_player bs
-    c1 = if getBoardVal b (0,0) == curPlayer then 2 else 0
-    c2 = if getBoardVal b (0,7) == curPlayer then 2 else 0
-    c3 = if getBoardVal b (7,0) == curPlayer then 2 else 0
-    c4 = if getBoardVal b (7,7) == curPlayer then 2 else 0
+    c1 = if getBoardVal b (0,0) == curPlayer then 2 else 0 
+    c2 = if getBoardVal b (0,7) == curPlayer then 2 else 0 
+    c3 = if getBoardVal b (7,0) == curPlayer then 2 else 0 
+    c4 = if getBoardVal b (7,7) == curPlayer then 2 else 0 
 
 {-
 Given a BoardState, return higher scores if current player has more moves
@@ -223,107 +216,24 @@ discCountHeuristic bs = (playerCount - oppCount) `div` 3
         oppCount = countDisc bs oppPlayer
 
 
+
+
 {-
-miniMax algo
-Commented out to run miniMaxAlphaBeta
+miniMax recursive method
 -}
--- miniMax :: BoardState -> Int -> Bool -> Int
--- -- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
--- miniMax bs remainingDepth isMaximizingPlayer
---     | remainingDepth == 0 || null moves = evaluateBoard bs
---     | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
---     | otherwise          = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
---     where
---         moves = getPossibleMoves bs
 
-
-
-
-{-
-miniMax with AlphaBeta, referenced from
-https://www.reddit.com/r/haskell/comments/1nigy1n/stumped_on_alpha_beta_pruning_in_haskell/
-
--}
-miniMaxAlphaBeta :: BoardState -> Int -> Bool -> Int -> Int -> Int                            
-miniMaxAlphaBeta bs 0 _ _ _ = evaluateBoard bs
-
-miniMaxAlphaBeta bs remainingDepth True alpha beta = go alpha 0 [updateTurn move bs | move <- getPossibleMoves bs]
-  where
-    go a v (s:ss) = let v' = max v (miniMaxAlphaBeta s (remainingDepth - 1) False a beta)
-                        in  if v' >= beta then v'
-                            else go (max a v') v' ss
-    go _ v [] = v
-
-miniMaxAlphaBeta bs remainingDepth False alpha beta = go beta 10000 [updateTurn move bs | move <- getPossibleMoves bs]
-  where
-    go b v (s:ss) = let v' = min v (miniMaxAlphaBeta s (remainingDepth - 1) True alpha b)
-                        in  if v' <= alpha then v'
-                            else go (min b v') v' ss
-    go _ v [] = v
-
-
+miniMax :: BoardState -> Int -> Bool -> Int
+-- isMaxizingPlayer: True if current player is maximizing player, False if minimizing player
+miniMax bs remainingDepth isMaximizingPlayer
+    | remainingDepth == 0 || null moves = evaluateBoard bs
+    | isMaximizingPlayer = maximum [miniMax (updateTurn move bs) (remainingDepth-1) False | move <- moves]
+    | otherwise = minimum [miniMax (updateTurn move bs) (remainingDepth-1) True | move <- moves]
+    where
+        moves = getPossibleMoves bs
 
 
 {-
-gameLoop logic for alternating between players
-TODO: need to implement alpha-beta pruning later to optimize miniMax
--}
--- To illustrate that the miniMax is working, we make player 2 use miniMax to pick its moves
--- For now, player 1 will just pick a random vailable move
--- We should be able to see player 2 winning more often than player 1
--- gameLoop :: BoardState -> IO ()
--- gameLoop bs = do
---     let possibleMoves = getPossibleMoves bs
---     if null possibleMoves
---         then do
---             let oppPlayer = if curr_player bs == 1 then 2 else 1
---                 oppPossibleMoves = getPossibleMoves (BoardState { board = board bs, curr_player = oppPlayer })
---             if null oppPossibleMoves
---                 then do
---                     let winner = checkWinner bs
---                     if winner == 0
---                     then putStrLn "Game over! It's a tie!"
---                     else do
---                         putStrLn $ "Game over! Winner is Player " ++ show winner
---                         putStrLn $ "Final Board:"
---                         printBoard (board bs)
---                         putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
---                         putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
---                 else do
---                     putStrLn $ "Player " ++ show (curr_player bs) ++ " has no moves. Skipping turn."
---                     gameLoop (BoardState { board = board bs, curr_player = oppPlayer })
---     else do
---         -- For simplicity, just pick the first possible move for now
---         putStrLn $ "Possible moves for Player " ++ show (curr_player bs) ++ ": " ++ show possibleMoves
---         move <- if curr_player bs == 1
---                     then do
---                         -- Pick a random move for player 1
---                         gen <- newStdGen
---                         let (randomIndex, _) = randomR (0, length possibleMoves - 1) gen
---                         let move = possibleMoves !! randomIndex
---                         putStrLn $ "Player 1 (Random) chooses move " ++ show move
---                         return move
---                     else do
---                         putStrLn $ "Player 2 (MiniMax) chooses move "
-
---                         let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ]
---                         -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
---                         putStrLn "Player 2 possible moves and scores:"
---                         mapM_ (\(m,score) -> putStrLn $ "Move: " ++ show m ++ ", Score: " ++ show score) possibleMovesWithScores
---                         let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
-
---                         putStrLn $ "Player 2 (MiniMax) chooses move " ++ show move
---                         return move
---         putStrLn $ "Player " ++ show (curr_player bs) ++ " places disc at " ++ show move
---         putStrLn "BEFORE MOVE:"
---         printBoard (board bs)
---         let newGameState = updateTurn move bs
---         putStrLn "AFTER MOVE:"
---         printBoard (board newGameState)
---         gameLoop newGameState
-
-{-
-No printing gameLoop
+No printing gameLoop for benchmarking
 -}
 noPrintGameLoop :: BoardState -> IO ()
 noPrintGameLoop bs = do
@@ -337,7 +247,7 @@ noPrintGameLoop bs = do
                     let winner = checkWinner bs
                     if winner == 0
                     then putStrLn "Game over! It's a tie!"
-                    else do
+                    else do 
                         putStrLn $ "Game over! Winner is Player " ++ show winner
                         putStrLn $ "Player 1 discs: " ++ show (countDisc bs 1)
                         putStrLn $ "Player 2 discs: " ++ show (countDisc bs 2)
@@ -353,16 +263,12 @@ noPrintGameLoop bs = do
                         let move = possibleMoves !! randomIndex
                         return move
                     else do
-                        let possibleMovesWithScores = [ (m, miniMaxAlphaBeta (updateTurn m bs) 3 True 0 100000) | m <- possibleMoves ]
-                        -- let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ]
-                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores
+                        let possibleMovesWithScores = [ (m, miniMax (updateTurn m bs) 3 True) | m <- possibleMoves ] `using` parList rdeepseq
+                        let move = fst $ maximumBy (\(_,score1) (_,score2) -> compare score1 score2) possibleMovesWithScores 
                         return move
         let newGameState = updateTurn move bs
         noPrintGameLoop newGameState
 
 main :: IO ()
 main = do
-    -- gameLoop initializeBoard
     noPrintGameLoop initializeBoard
-    putStrLn "Thanks for playing!"
-    -- Simple testing for heuristics, can delete later
