@@ -1,0 +1,179 @@
+====================================================================
+MCTS Version 1
+====================================================================
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 97.00%		
+Average elapsed time: 5.21751 seconds		
+Average total sparks: 29.82 sparks		
+Average converted sparks: 0.0 sparks		
+Average percentage sparks converted: 0.00%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 98.00%		
+Average elapsed time: 3.086879999999999 seconds		
+Average total sparks: 59.66 sparks		
+Average converted sparks: 28.09 sparks		
+Average percentage sparks converted: 47.08%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 100.00%		
+Average elapsed time: 2.2421799999999994 seconds		
+Average total sparks: 88.77 sparks		
+Average converted sparks: 55.67 sparks		
+Average percentage sparks converted: 62.71%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 98.00%		
+Average elapsed time: 1.9943799999999987 seconds		
+Average total sparks: 115.04 sparks		
+Average converted sparks: 80.87 sparks		
+Average percentage sparks converted: 70.30%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 100.00%		
+Average elapsed time: 2.0471999999999992 seconds		
+Average total sparks: 146.25 sparks		
+Average converted sparks: 109.2 sparks		
+Average percentage sparks converted: 74.67%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 99.00%		
+Average elapsed time: 1.9804599999999999 seconds		
+Average total sparks: 176.7 sparks		
+Average converted sparks: 137.99 sparks		
+Average percentage sparks converted: 78.09%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 99.00%		
+Average elapsed time: 2.32113 seconds		
+Average total sparks: 203.91 sparks		
+Average converted sparks: 163.46 sparks		
+Average percentage sparks converted: 80.16%		
+--------------------------------------------------------------------	
+Number of threads: 8		
+Player 2 win percentage: 98.00%		
+Average elapsed time: 1.7542600000000002 seconds		
+Average total sparks: 234.24 sparks		
+Average converted sparks: 191.1 sparks		
+Average percentage sparks converted: 81.58%		
+
+====================================================================
+MCTS Version 2
+====================================================================
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 93.00%		
+Average elapsed time: 6.844800000000001 seconds		
+Average total sparks: 2951.0 sparks		
+Average converted sparks: 0.4 sparks		
+Average percentage sparks converted: 0.01%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 96.00%		
+Average elapsed time: 3.7167599999999994 seconds		
+Average total sparks: 2977.0 sparks		
+Average converted sparks: 2796.01 sparks		
+Average percentage sparks converted: 93.92%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 100.00%		
+Average elapsed time: 2.6647700000000007 seconds		
+Average total sparks: 2931.0 sparks		
+Average converted sparks: 2754.25 sparks		
+Average percentage sparks converted: 93.97%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 94.00%		
+Average elapsed time: 2.3882000000000008 seconds		
+Average total sparks: 2996.0 sparks		
+Average converted sparks: 2802.94 sparks		
+Average percentage sparks converted: 93.56%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 95.00%		
+Average elapsed time: 2.1763399999999997 seconds		
+Average total sparks: 2984.0 sparks		
+Average converted sparks: 2793.2 sparks		
+Average percentage sparks converted: 93.61%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 93.00%		
+Average elapsed time: 1.9725099999999998 seconds		
+Average total sparks: 2977.0 sparks		
+Average converted sparks: 2778.63 sparks		
+Average percentage sparks converted: 93.34%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 99.00%		
+Average elapsed time: 2.0281899999999995 seconds		
+Average total sparks: 2977.0 sparks		
+Average converted sparks: 2785.73 sparks		
+Average percentage sparks converted: 93.58%		
+--------------------------------------------------------------------		
+Number of threads: 8		
+Player 2 win percentage: 98.00%		
+Average elapsed time: 1.8870899999999995 seconds		
+Average total sparks: 2969.0 sparks		
+Average converted sparks: 2783.49 sparks		
+Average percentage sparks converted: 93.75%		
+
+====================================================================
+MCTS Version 3
+====================================================================
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 97.00%		
+Average elapsed time: 6.953329999999999 seconds		
+Average total sparks: 3262.29 sparks		
+Average converted sparks: 0.0 sparks		
+Average percentage sparks converted: 0.00%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 97.00%		
+Average elapsed time: 3.7907399999999982 seconds		
+Average total sparks: 3283.38 sparks		
+Average converted sparks: 2822.94 sparks		
+Average percentage sparks converted: 85.98%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 96.00%		
+Average elapsed time: 2.981839999999999 seconds		
+Average total sparks: 3315.57 sparks		
+Average converted sparks: 2847.79 sparks		
+Average percentage sparks converted: 85.89%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 99.00%		
+Average elapsed time: 2.4443800000000007 seconds		
+Average total sparks: 3273.39 sparks		
+Average converted sparks: 2807.59 sparks		
+Average percentage sparks converted: 85.77%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 96.00%		
+Average elapsed time: 2.4921899999999995 seconds		
+Average total sparks: 3303.36 sparks		
+Average converted sparks: 2810.64 sparks		
+Average percentage sparks converted: 85.08%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 96.00%		
+Average elapsed time: 2.1285100000000003 seconds		
+Average total sparks: 3265.62 sparks		
+Average converted sparks: 2794.28 sparks		
+Average percentage sparks converted: 85.57%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 98.00%		
+Average elapsed time: 1.9753500000000006 seconds		
+Average total sparks: 3291.15 sparks		
+Average converted sparks: 2814.43 sparks		
+Average percentage sparks converted: 85.52%		
+--------------------------------------------------------------------		
+Number of threads: 8		
+Player 2 win percentage: 99.00%		
+Average elapsed time: 1.86315 seconds		
+Average total sparks: 3270.06 sparks		
+Average converted sparks: 2816.27 sparks		
+Average percentage sparks converted: 86.12%		

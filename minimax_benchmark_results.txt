@@ -1,0 +1,243 @@
+====================================================================
+Minimax without Alpha Beta Pruning: parList
+====================================================================
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 87.00%		
+Average elapsed time: 3.4549700000000003 seconds		
+Average total sparks: 302.07 sparks		
+Average converted sparks: 0.0 sparks		
+Average percentage sparks converted: 0.00%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 88.00%		
+Average elapsed time: 1.8718799999999995 seconds		
+Average total sparks: 305.41 sparks		
+Average converted sparks: 265.2 sparks		
+Average percentage sparks converted: 86.83%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 89.00%		
+Average elapsed time: 1.3216599999999996 seconds		
+Average total sparks: 299.84 sparks		
+Average converted sparks: 259.65 sparks		
+Average percentage sparks converted: 86.60%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 88.00%		
+Average elapsed time: 1.12645 seconds		
+Average total sparks: 308.46 sparks		
+Average converted sparks: 268.08 sparks		
+Average percentage sparks converted: 86.91%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 86.00%		
+Average elapsed time: 1.05305 seconds		
+Average total sparks: 307.89 sparks		
+Average converted sparks: 268.33 sparks		
+Average percentage sparks converted: 87.15%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 95.00%		
+Average elapsed time: 0.9794699999999997 seconds		
+Average total sparks: 303.85 sparks		
+Average converted sparks: 265.42 sparks		
+Average percentage sparks converted: 87.35%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 88.00%		
+Average elapsed time: 1.0155700000000007 seconds		
+Average total sparks: 304.99 sparks		
+Average converted sparks: 267.34 sparks		
+Average percentage sparks converted: 87.66%		
+--------------------------------------------------------------------		
+Number of threads: 8		
+Player 2 win percentage: 88.00%		
+Average elapsed time: 0.9893100000000001 seconds		
+Average total sparks: 300.21 sparks		
+Average converted sparks: 263.22 sparks		
+Average percentage sparks converted: 87.68%		
+
+====================================================================
+Minimax without Alpha Beta Pruning: parBuffer
+====================================================================
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 89.00%		
+Average elapsed time: 3.6209499999999997 seconds		
+Average total sparks: 301.44 sparks		
+Average converted sparks: 0.0 sparks		
+Average percentage sparks converted: 0.00%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 82.00%		
+Average elapsed time: 1.9612299999999996 seconds		
+Average total sparks: 298.45 sparks		
+Average converted sparks: 259.07 sparks		
+Average percentage sparks converted: 86.81%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 86.00%		
+Average elapsed time: 1.3057600000000005 seconds		
+Average total sparks: 298.08 sparks		
+Average converted sparks: 257.98 sparks		
+Average percentage sparks converted: 86.55%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 92.00%		
+Average elapsed time: 1.2807399999999998 seconds		
+Average total sparks: 303.56 sparks		
+Average converted sparks: 263.15 sparks		
+Average percentage sparks converted: 86.69%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 92.00%		
+Average elapsed time: 1.2156799999999994 seconds		
+Average total sparks: 306.56 sparks		
+Average converted sparks: 266.99 sparks		
+Average percentage sparks converted: 87.09%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 81.00%		
+Average elapsed time: 1.17163 seconds		
+Average total sparks: 300.32 sparks		
+Average converted sparks: 262.52 sparks		
+Average percentage sparks converted: 87.41%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 87.00%		
+Average elapsed time: 1.15769 seconds		
+Average total sparks: 304.07 sparks		
+Average converted sparks: 266.63 sparks		
+Average percentage sparks converted: 87.69%		
+--------------------------------------------------------------------		
+Number of threads: 8		
+Player 2 win percentage: 94.00%		
+Average elapsed time: 1.1189600000000002 seconds		
+Average total sparks: 303.99 sparks		
+Average converted sparks: 265.9 sparks		
+Average percentage sparks converted: 87.47%		
+
+====================================================================
+Minimax with Alpha Beta Pruning: parList
+====================================================================
+
+--------------------------------------------------------------------		
+Number of threads: 1		
+Player 2 win percentage: 88.00%		
+Average elapsed time: 0.85458 seconds		
+Average total sparks: 304.39 sparks		
+Average converted sparks: 0.0 sparks		
+Average percentage sparks converted: 0.00%		
+--------------------------------------------------------------------		
+Number of threads: 2		
+Player 2 win percentage: 86.00%		
+Average elapsed time: 0.5298900000000001 seconds		
+Average total sparks: 302.94 sparks		
+Average converted sparks: 252.35 sparks		
+Average percentage sparks converted: 83.30%		
+--------------------------------------------------------------------		
+Number of threads: 3		
+Player 2 win percentage: 84.00%		
+Average elapsed time: 0.3857300000000003 seconds		
+Average total sparks: 302.27 sparks		
+Average converted sparks: 250.97 sparks		
+Average percentage sparks converted: 83.03%		
+--------------------------------------------------------------------		
+Number of threads: 4		
+Player 2 win percentage: 93.00%		
+Average elapsed time: 0.3261900000000001 seconds		
+Average total sparks: 304.4 sparks		
+Average converted sparks: 252.41 sparks		
+Average percentage sparks converted: 82.92%		
+--------------------------------------------------------------------		
+Number of threads: 5		
+Player 2 win percentage: 85.00%		
+Average elapsed time: 0.28398 seconds		
+Average total sparks: 306.27 sparks		
+Average converted sparks: 254.57 sparks		
+Average percentage sparks converted: 83.12%		
+--------------------------------------------------------------------		
+Number of threads: 6		
+Player 2 win percentage: 89.00%		
+Average elapsed time: 0.27776 seconds		
+Average total sparks: 299.66 sparks		
+Average converted sparks: 248.92 sparks		
+Average percentage sparks converted: 83.07%		
+--------------------------------------------------------------------		
+Number of threads: 7		
+Player 2 win percentage: 86.00%		
+Average elapsed time: 0.26699999999999996 seconds		
+Average total sparks: 301.28 sparks		
+Average converted sparks: 251.97 sparks		
+Average percentage sparks converted: 83.63%		
+--------------------------------------------------------------------		
+Number of threads: 8		
+Player 2 win percentage: 85.00%		
+Average elapsed time: 0.30033 seconds		
+Average total sparks: 303.16 sparks		
+Average converted sparks: 254.22 sparks		
+Average percentage sparks converted: 83.86%		
+
+====================================================================
+Minimax with Alpha Beta Pruning: parBuffer
+====================================================================
+
+--------------------------------------------------------------------	
+Number of threads: 1	
+Player 2 win percentage: 83.00%	
+Average elapsed time: 0.88857 seconds	
+Average total sparks: 309.44 sparks	
+Average converted sparks: 0.0 sparks	
+Average percentage sparks converted: 0.00%	
+--------------------------------------------------------------------	
+Number of threads: 2	
+Player 2 win percentage: 82.00%	
+Average elapsed time: 0.5300099999999996 seconds	
+Average total sparks: 307.41 sparks	
+Average converted sparks: 256.57 sparks	
+Average percentage sparks converted: 83.46%	
+--------------------------------------------------------------------	
+Number of threads: 3	
+Player 2 win percentage: 83.00%	
+Average elapsed time: 0.3830700000000001 seconds	
+Average total sparks: 299.88 sparks	
+Average converted sparks: 249.52 sparks	
+Average percentage sparks converted: 83.21%	
+--------------------------------------------------------------------	
+Number of threads: 4	
+Player 2 win percentage: 92.00%	
+Average elapsed time: 0.3069900000000001 seconds	
+Average total sparks: 304.04 sparks	
+Average converted sparks: 252.2 sparks	
+Average percentage sparks converted: 82.95%	
+--------------------------------------------------------------------	
+Number of threads: 5	
+Player 2 win percentage: 88.00%	
+Average elapsed time: 0.28913000000000005 seconds	
+Average total sparks: 300.35 sparks	
+Average converted sparks: 249.57 sparks	
+Average percentage sparks converted: 83.09%	
+--------------------------------------------------------------------	
+Number of threads: 6	
+Player 2 win percentage: 88.00%	
+Average elapsed time: 0.27724 seconds	
+Average total sparks: 297.12 sparks	
+Average converted sparks: 247.42 sparks	
+Average percentage sparks converted: 83.27%	
+--------------------------------------------------------------------	
+Number of threads: 7	
+Player 2 win percentage: 82.00%	
+Average elapsed time: 0.26183 seconds	
+Average total sparks: 306.54 sparks	
+Average converted sparks: 256.67 sparks	
+Average percentage sparks converted: 83.73%	
+--------------------------------------------------------------------	
+Number of threads: 8	
+Player 2 win percentage: 94.00%	
+Average elapsed time: 0.27085999999999993 seconds	
+Average total sparks: 305.63 sparks	
+Average converted sparks: 255.22 sparks	
+Average percentage sparks converted: 83.51%	
+	
+	
