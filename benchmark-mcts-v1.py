@@ -1,11 +1,12 @@
 import subprocess
 import re
 import sys
-# Benchmarking script for comparing parallelized othello implementations
-# Note: MCTS Version 1 will be benchmarked using a different file, benchmark-mcts-v1.py
+# Benchmarking script for MCTS Version 1
+# Note: MCTS Version 1 will require edits made to the source file, othello-mcts-par-v1.hs
+# Check othello-mcts-par-v1.hs for more details
 
 NUM_RUNS = 100
-THREADS = 8
+THREADS = 1
 p2_wins = 0
 elapsed_times = []
 total_sparks = []
@@ -16,22 +17,17 @@ gc_sparks = []
 fizzled_sparks = []
 
 
-if len(sys.argv) != 2:
-    print("Please provide the name of the executable you would like to benchmark in the format ./executable_name")
+if len(sys.argv) != 3:
+    print("Please provide the name of the executable you would like to benchmark and the threadcount")
+    print("python3 benchmark-mcts-v1.py ./mcts/othello-mcts-par-v1 2")
     sys.exit()
 
 executable = sys.argv[1]
+thread_count = sys.argv[2]
 
 
 commands = [
-    [executable, "+RTS", "-N1", "-s"],
-    [executable, "+RTS", "-N2", "-s"],
-    [executable, "+RTS", "-N3", "-s"],
-    [executable, "+RTS", "-N4", "-s"],
-    [executable, "+RTS", "-N5", "-s"],
-    [executable, "+RTS", "-N6", "-s"],
-    [executable, "+RTS", "-N7", "-s"],
-    [executable, "+RTS", "-N8", "-s"]
+    [executable, "+RTS", "-N" + thread_count, "-s"],
 ]
 
 for i in range(THREADS):
@@ -84,7 +80,7 @@ for i in range(THREADS):
             print("ERROR: SPARKS data not found in stderr.")
 
     print("--------------------------------------------------------------------")
-    print(f"Number of threads: {i+1}")
+    print(f"Number of threads: {thread_count}")
     percentage = (p2_wins / NUM_RUNS) * 100
     print(f"Player 2 win percentage: {percentage:.2f}%")
     average_time = sum(elapsed_times) / len(elapsed_times) if elapsed_times else 0
