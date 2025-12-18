@@ -1,5 +1,6 @@
 #!/bin/bash
 stack install random
+stack install split
 
 # Compile sequential MCTS into othello-mcts-seq
 stack ghc  --package random  -- -Wall -O2 -o othello-mcts-seq othello-mcts-seq.hs
