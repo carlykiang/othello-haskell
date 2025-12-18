@@ -15,6 +15,7 @@ additional parallelized tree mergingMCTS (version 3)
 
 Commands to compile and run this program:
 stack install random
+stack install split
 
 stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par-v3 othello-mcts-par-v3.hs
 ./othello-mcts-par-v3 +RTS -N2 -s -l     

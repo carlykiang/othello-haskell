@@ -14,6 +14,7 @@ This file contains logic for chunked root parallelized MCTS (version 2)
 
 Commands to compile and run this program:
 stack install random
+stack install split
 
 stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par-v2 othello-mcts-par-v2.hs
 ./othello-mcts-par-v2 +RTS -N2 -s -l     

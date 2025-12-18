@@ -16,6 +16,7 @@ If replicating result from Attempt 1, replace last number on line
 
 Commands to compile and run this program:
 stack install random
+stack install split
 
 stack ghc  --package random  -- -Wall -O2 -threaded -rtsopts -o othello-mcts-par-v1 othello-mcts-par-v1.hs
 ./othello-mcts-par-v1 +RTS -N2 -s -l     
