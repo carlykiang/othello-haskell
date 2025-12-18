@@ -14,7 +14,7 @@ Alternatively, you can use the provided bash script inside each directory to aut
 4. othello-minimax-ab-parbuffer.hs
 ```bash
 # Assume you are inside minimax/ directory
-./minimax.sh # Compile all .hs file into corresponding executab;es
+./minimax.sh # Compile all .hs file into corresponding executables
 ./cleanMinimax.sh # Clean up all .o, .hi, and executable files
 ```
 
@@ -24,7 +24,7 @@ Alternatively, you can use the provided bash script inside each directory to aut
 3. othello-mcts-par-v3.hs
 ```bash
 # Assume you are inside mcts/ directory
-./mcts.sh # Compile all .hs file into corresponding executab;es
+./mcts.sh # Compile all .hs file into corresponding executables
 ./cleanMcts.sh # Clean up all .o, .hi, and executable files
 ```
 
